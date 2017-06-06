@@ -101,10 +101,8 @@ public class TaskTwo {
                 })
                 .reduceByKey((l1,l2) -> {
                     List<String> patient_single_gene_list_temp = new ArrayList<>();
-                    String gene_id_1 = l1.get(0);
-                    String gene_id_2 = l2.get(0);
-                    patient_single_gene_list_temp.add(gene_id_1);
-                    patient_single_gene_list_temp.add(gene_id_2);
+                    patient_single_gene_list_temp.addAll(l1);
+                    patient_single_gene_list_temp.addAll(l2);
                     return patient_single_gene_list_temp;
                 });
 
@@ -153,12 +151,12 @@ public class TaskTwo {
                     }
                 })
                 .cache();
-        System.out.println("I have passed gene_set_size_1_pair_rdd");
+//        System.out.println("I have passed gene_set_size_1_pair_rdd");
 
         // Prepare for the iteration
         // Have the initial gene set which only contains item set with size k=1
         JavaPairRDD<String,Integer> gene_set = gene_set_size_1_pair_rdd;
-        System.out.println("I have passed gene_set");
+//        System.out.println("I have passed gene_set");
 
         // Start the iteration
         // With JavaPairRDD<String,Integer> gene_set
@@ -180,12 +178,12 @@ public class TaskTwo {
                     })
                     .map(tuple -> tuple._1)
                     .collect();
-            System.out.println("I have passed gene_set_size_k_last_list");
+//            System.out.println("I have passed gene_set_size_k_last_list");
             // Have the list store all of the k=1 single gene
             List<String> gene_set_size_1_list = gene_set_size_1_pair_rdd
                     .map(tuple -> tuple._1)
                     .collect();
-            System.out.println("I have passed gene_set_size_1_list");
+//            System.out.println("I have passed gene_set_size_1_list");
             // Have a list to store all the new k size gene set
             List<String> gene_set_size_k_list = new ArrayList<>();
             for(String gene_set_size_k_last : gene_set_size_k_last_list){
@@ -199,30 +197,60 @@ public class TaskTwo {
                     }
                 }
             }
-            System.out.println("I have passed gene_set_size_k_list");
+//            System.out.println("I have passed gene_set_size_k_list");
             // Broadcast gene_set_size_k_string_rdd
-            JavaRDD<String> gene_set_size_k_string_rdd = sc.parallelize(gene_set_size_k_list);
-            final Broadcast<JavaRDD<String>> bc_gene_set_size_k_string_rdd = sc.broadcast(gene_set_size_k_string_rdd);
-            System.out.println("I have passed the broadcast");
+//            JavaRDD<String> gene_set_size_k_string_rdd = sc.parallelize(gene_set_size_k_list);
+//            final Broadcast<JavaRDD<String>> bc_gene_set_size_k_string_rdd = sc.broadcast(gene_set_size_k_string_rdd);
+//            System.out.println("I have passed the broadcast");
+            Broadcast<List<String>> bc_gene_set_size_k_list = sc.broadcast(gene_set_size_k_list);
+//            System.out.println("I have passed the broadcast");
 
             // Count the support num and filter
+//            JavaPairRDD<String,Integer> gene_set_size_k = patient_divided_single_gene_list_rdd
+//                    .flatMapToPair(patient_divided_single_gene_list -> {
+//                        List<Tuple2<String, Integer>> part_gene_set_size_k_list = bc_gene_set_size_k_string_rdd
+//                                .value()
+//                                .mapToPair(gene_set_size_k_string -> {
+//                                    String[] single_gene_array_in_gene_set_size_k = gene_set_size_k_string.split(";");
+//                                    List<String> single_gene_list_in_gene_set_size_k = Arrays.asList(single_gene_array_in_gene_set_size_k);
+//                                    Tuple2<String, Integer> temp;
+//                                    // If this patient contains all the single genes in this k size gene set, Integer will be 1, else will be 0
+//                                    if(patient_divided_single_gene_list.containsAll(single_gene_list_in_gene_set_size_k)){
+//                                        temp = new Tuple2<>(gene_set_size_k_string,1);
+//                                    }else{
+//                                        temp = new Tuple2<>(gene_set_size_k_string,0);
+//                                    }
+//                                    return temp;
+//                                })
+//                                .collect();
+//                        return  part_gene_set_size_k_list.iterator();
+//                    })
+//                    .reduceByKey((n1,n2) -> n1+n2)
+//                    .filter(tuple -> {
+//                        Integer gene_support_num = tuple._2;
+//                        if(gene_support_num<support_num){
+//                            return false;
+//                        }else{
+//                            return true;
+//                        }
+//                    });
+
             JavaPairRDD<String,Integer> gene_set_size_k = patient_divided_single_gene_list_rdd
                     .flatMapToPair(patient_divided_single_gene_list -> {
-                        List<Tuple2<String, Integer>> part_gene_set_size_k_list = bc_gene_set_size_k_string_rdd
-                                .value()
-                                .mapToPair(gene_set_size_k_string -> {
-                                    String[] single_gene_array_in_gene_set_size_k = gene_set_size_k_string.split(";");
-                                    List<String> single_gene_list_in_gene_set_size_k = Arrays.asList(single_gene_array_in_gene_set_size_k);
-                                    Tuple2<String, Integer> temp;
-                                    // If this patient contains all the single genes in this k size gene set, Integer will be 1, else will be 0
-                                    if(patient_divided_single_gene_list.containsAll(single_gene_list_in_gene_set_size_k)){
-                                        temp = new Tuple2<>(gene_set_size_k_string,1);
-                                    }else{
-                                        temp = new Tuple2<>(gene_set_size_k_string,0);
-                                    }
-                                    return temp;
-                                })
-                                .collect();
+                        List<Tuple2<String, Integer>> part_gene_set_size_k_list = new ArrayList<>();
+                        List<String> bc_gene_set_size_k_list_value = bc_gene_set_size_k_list.value();
+                        for(String gene_set_size_k_string : bc_gene_set_size_k_list_value){
+                            String[] single_gene_array_in_gene_set_size_k = gene_set_size_k_string.split(";");
+                            List<String> single_gene_list_in_gene_set_size_k = Arrays.asList(single_gene_array_in_gene_set_size_k);
+                            Tuple2<String, Integer> temp;
+                            // If this patient contains all the single genes in this k size gene set, Integer will be 1, else will be 0
+                            if(patient_divided_single_gene_list.containsAll(single_gene_list_in_gene_set_size_k)){
+                                temp = new Tuple2<>(gene_set_size_k_string,1);
+                            }else{
+                                temp = new Tuple2<>(gene_set_size_k_string,0);
+                            }
+                            part_gene_set_size_k_list.add(temp);
+                        }
                         return  part_gene_set_size_k_list.iterator();
                     })
                     .reduceByKey((n1,n2) -> n1+n2)
@@ -234,21 +262,22 @@ public class TaskTwo {
                             return true;
                         }
                     });
-            System.out.println("I have passed the gene_set_size_k");
+
+//            System.out.println("I have passed the gene_set_size_k");
 
             // Have a list to store gene set size k
             List<Tuple2<String,Integer>> gene_set_this_loop_list = gene_set_size_k.collect();
-            System.out.println("I have passed gene_set_this_loop_list");
+//            System.out.println("I have passed gene_set_this_loop_list");
 
             // Have the list of gene_set without gene set size k
             List<Tuple2<String,Integer>> gene_set_previous_loop_list = gene_set.collect();
-            System.out.println("I have passed gene_set_previous_loop_list");
+//            System.out.println("I have passed gene_set_previous_loop_list");
 
             // Merge gene_set_full_list and gene_set_size_k_string_int_tuple_list
             List<Tuple2<String, Integer>> loop_final_list = new ArrayList<>();
             loop_final_list.addAll(gene_set_previous_loop_list);
             loop_final_list.addAll(gene_set_this_loop_list);
-            System.out.println("I have passed loop_final_list");
+//            System.out.println("I have passed loop_final_list");
 
             // Convert gene_set_full_list to JavaPairRDD and cache this in memory
             gene_set = sc
@@ -256,12 +285,7 @@ public class TaskTwo {
                     .mapToPair(tuple -> tuple)
                     .cache();
 
-            // Convert gene_set_full_list to JavaPairRDD and cache this in memory
-//            gene_set = sc
-//                    .parallelize(loop_final_list)
-//                    .mapToPair(tuple -> tuple);
-
-            System.out.println("I have passed gene_set cache");
+//            System.out.println("I have passed gene_set cache");
         }
 
         // Change gene_set to the output format
@@ -281,7 +305,8 @@ public class TaskTwo {
         // map Output: one object; mapToPair Output: Tuple2<key, value>
         // flatMap Output: iterator<Object>; flatMapToPair Output: iterator<Tuple2<key,value>>
 
-        output.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath + "patient_gene_value");
+        output.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath + "task_two_result");
+//        patient_single_gene_list_pair_rdd.saveAsTextFile(outputDataPath + "patient_single_gene_list_pair_rdd");
         sc.close();
 
     }
