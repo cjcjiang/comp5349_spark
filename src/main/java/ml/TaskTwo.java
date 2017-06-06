@@ -4,7 +4,6 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import scala.Int;
 import scala.Tuple2;
 
 import java.util.ArrayList;
@@ -163,15 +162,33 @@ public class TaskTwo {
                     return patient_gene_whole_string;
                 });
         JavaRDD<String> gene_whole_string_rdd = patient_gene_whole_string_pair_rdd.values();
-        List<String> gene_whole_string_list = gene_whole_string_rdd.collect();
+//        List<String> gene_whole_string_list = gene_whole_string_rdd.collect();
+
+        // Prepare for the iteration
+        // Divide the JavaRDD<String> gene_whole_string_rdd into 2 to k size gene set
+        JavaPairRDD<String, Integer> whole_gene_set_k_size = gene_whole_string_rdd
+                .flatMapToPair(s -> {
+                    List<String> single_patient_gene_set_size_k_list = new ArrayList<>();
+                    String[] single_patient_whole_gene_array = s.split(";");
+                    List<Object> single_patient_whole_gene_list = Arrays.asList(single_patient_whole_gene_array);
+                    List<List<Object>> temp_list = CombinationGenerator.getCombinations(single_patient_whole_gene_list, k_default);
+                    for(List<Object> temp_list_string_array : temp_list){
+                        String gene_set_string = "";
+                        for(Object temp_list_string : temp_list_string_array){
+                            gene_set_string = gene_set_string + temp_list_string.toString();
+                        }
+                        // TODO: change List<String> to List<Tuple2>
+                        single_patient_gene_set_size_k_list.add(gene_set_string);
+                    }
+                })
 
         // Start the iteration
         // gene_set, JavaPairRDD<String,Integer>
-        for(int i=2;i<=k_default;i++){
+        for(int i=0;i<=k_default;i++){
             System.out.println("I am in first loop: " + i);
             int k_last = i -1;
             // Have the list of gene_set
-            List<Tuple2<String,Integer>> gene_set_full_list = gene_set.collect();
+//            List<Tuple2<String,Integer>> gene_set_full_list = gene_set.collect();
             // To calculate the k size item set, firstly, filter out only the k-1 size item set
             JavaPairRDD<String,Integer> gene_set_size_k_last = gene_set
                     .filter(tuple -> {
@@ -184,21 +201,31 @@ public class TaskTwo {
                         }
                     });
             List<Tuple2<String,Integer>> gene_set_list_size_k_last = gene_set_size_k_last.collect();
-            // Have a list to store the k size item set
+            // Have a list to store the k size item set tuple
             List<Tuple2<String,Integer>> gene_set_size_k_string_int_tuple_list = new ArrayList<>();
-            // Generate the new k size gene set list
+            // Have a list to store the new k size gene set string
             List<String> gene_set_size_k_list = new ArrayList<>();
+            // Generate the new gene set with size k
             for(Tuple2<String,Integer> tuple : gene_set_list_size_k_last){
-                System.out.println("I am in item set size k generate loop: " + i);
-                String[] gene_set_size_k_last_array = tuple._1.split(";");
-                List<String> gene_set_size_k_last_list = Arrays.asList(gene_set_size_k_last_array);
+//                System.out.println("I am in item set size k generate loop: " + i);
+                String[] single_gene_set_size_k_last_array = tuple._1.split(";");
+                List<String> single_gene_set_size_k_last_list = Arrays.asList(single_gene_set_size_k_last_array);
                 for(String single_gene : gene_set_size_1_list){
-                    if(gene_set_size_k_last_list.stream().noneMatch(s -> s.equals(single_gene))){
+                    if(single_gene_set_size_k_last_list.stream().noneMatch(s -> s.equals(single_gene))){
                         String gene_set_size_k_string = tuple._1 + ";" + single_gene;
                         gene_set_size_k_list.add(gene_set_size_k_string);
                     }
                 }
             }
+
+            // Divide the JavaRDD<String> gene_whole_string_rdd into i(this loop's k) size gene set
+            JavaPairRDD<String, Integer> whole_gene_set_k_size = gene_whole_string_rdd
+                    .flatMapToPair(s -> {
+                        List<String> single_patient_gene_set_size_k_list = new ArrayList<>();
+                        String[] single_patient_gene_array = s.split(";");
+                        for(int q=0;q<=i;q++)
+                    })
+
             // Loop through all of the cancer patients' gene large set
             for(String gene_whole_string : gene_whole_string_list){
                 System.out.println("I am in  cancer patients' gene large set loop: " + i);
