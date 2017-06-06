@@ -329,6 +329,38 @@ public class TaskTwo {
                         }
                     });
 
+            // Try to use mapPartition
+//            JavaPairRDD<String,Integer> gene_set_size_k = patient_divided_single_gene_list_rdd
+//                    .mapPartitionsToPair(patient_divided_single_gene_iterator -> {
+//                        List<Tuple2<String, Integer>> part_gene_set_size_k_list = new ArrayList<>();
+//                        List<String> bc_gene_set_size_k_list_value = bc_gene_set_size_k_list.value();
+//                        while(patient_divided_single_gene_iterator.hasNext()){
+//                            List<String> patient_divided_single_gene_list = patient_divided_single_gene_iterator.next();
+//                            for(String gene_set_size_k_string : bc_gene_set_size_k_list_value){
+//                                String[] single_gene_array_in_gene_set_size_k = gene_set_size_k_string.split(";");
+//                                List<String> single_gene_list_in_gene_set_size_k = Arrays.asList(single_gene_array_in_gene_set_size_k);
+//                                // If this patient contains all the single genes in this k size gene set, Integer will be 1, else will be 0
+//                                if(patient_divided_single_gene_list.containsAll(single_gene_list_in_gene_set_size_k)){
+//                                    Tuple2<String, Integer> temp = new Tuple2<>(gene_set_size_k_string,1);
+//                                    part_gene_set_size_k_list.add(temp);
+//                                }
+//                            }
+//                        }
+//                        return  part_gene_set_size_k_list.iterator();
+//                    },true)
+//                    .reduceByKey((n1,n2) -> n1+n2)
+//                    .filter(tuple -> {
+//                        Integer gene_support_num = tuple._2;
+//                        if(gene_support_num<support_num){
+//                            return false;
+//                        }else{
+//                            return true;
+//                        }
+//                    });
+
+            // TODO: Reverse the join order (for k=2, the size of the possible gene set can be very large)
+            // Even for small, k_max can be 384
+
 //            System.out.println("I have passed the gene_set_size_k");
 
             // Have a list to store gene set size k
