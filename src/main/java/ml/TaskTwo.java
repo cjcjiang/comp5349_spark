@@ -8,10 +8,7 @@ import org.apache.spark.api.java.function.PairFlatMapFunction;
 import org.apache.spark.broadcast.Broadcast;
 import scala.Tuple2;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 /*
 * GEO.txt
@@ -201,6 +198,7 @@ public class TaskTwo {
                     List<String> part_gene_id_list = new ArrayList<>();
                     part_gene_id_list.addAll(l1);
                     part_gene_id_list.addAll(l2);
+                    Collections.sort(part_gene_id_list);
                     return part_gene_id_list;
                 });
 
