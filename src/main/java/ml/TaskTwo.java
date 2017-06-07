@@ -25,13 +25,31 @@ import java.util.List;
 public class TaskTwo {
     public static void main(String[] args) {
         final String[] cancer = {"breast-cancer", "prostate-cancer", "pancreatic-cancer", "leukemia", "lymphoma"};
-        final Double support_value_default = 0.3;
+        final Double support_value_default = 0.37;
+        final Double support_value;
         final Integer k_default = 5;
+        final Integer k_user;
+        final String inputDataPath;
+        final String outputDataPath;
 
-        // TODO: user define support_value
         // TODO: user define max k size
 
-        String inputDataPath = args[0], outputDataPath = args[1];
+        // TODO: error handling here
+        if(args.length==4){
+            inputDataPath = args[0];
+            outputDataPath = args[1];
+            support_value = Double.parseDouble(args[2]);
+            k_user = Integer.parseInt(args[3]);
+            System.out.println("The minimum support is set to: " + support_value + "; the maximum itemset size is set to: " + k_user);
+        }else{
+            inputDataPath = args[0];
+            outputDataPath = args[1];
+            support_value = support_value_default;
+            k_user = k_default;
+            System.out.println("Wrong command, all things are set to default.");
+            System.out.println("The minimum support is set to: " + support_value + "; the maximum itemset size is set to: " + k_user);
+        }
+
         SparkConf conf = new SparkConf();
 
         conf.setAppName("LAB457_GP6_AS3_TaskTwo");
@@ -113,7 +131,7 @@ public class TaskTwo {
 
         // Count the amount of the cancer patient that occurs in geo.txt
         Long cancer_patient_num = patient_single_gene_list_pair_rdd.count();
-        Long support_num = new Double(cancer_patient_num * support_value_default).longValue();
+        Long support_num = new Double(cancer_patient_num * support_value).longValue();
         System.out.println("The support_num is: " + support_num);
 
         // Prepare for the iteration
@@ -156,6 +174,23 @@ public class TaskTwo {
                     }
                 })
                 .cache();
+        Long distinct_gene_num = gene_set_size_1_pair_rdd.count();
+
+        // Have the eff test
+        JavaPairRDD<String,Integer> gene_set_size_1_no_filter = patient_divided_single_gene_list_rdd
+                .flatMapToPair(list -> {
+                    List<Tuple2<String, Integer>> gene_set_size_1_list_temp = new ArrayList<>();
+                    for(String s : list){
+                        Integer count_num = 1;
+                        Tuple2<String, Integer> temp = new Tuple2<>(s, count_num);
+                        gene_set_size_1_list_temp.add(temp);
+                    }
+                    return gene_set_size_1_list_temp.iterator();
+                })
+                .reduceByKey((n1, n2) -> n1 + n2);
+        Long distinct_gene_num_no_filter = gene_set_size_1_no_filter.count();
+        System.out.println("Before filter gene type num is: " + distinct_gene_num_no_filter + "; after filter it is: " + distinct_gene_num);
+
 //        System.out.println("I have passed gene_set_size_1_pair_rdd");
 
         // Prepare for the iteration
@@ -169,7 +204,7 @@ public class TaskTwo {
 
         // Start the iteration
         // With JavaPairRDD<String,Integer> gene_set
-        for(int i=2;i<=k_default;i++){
+        for(int i=2;i<=k_user;i++){
             System.out.println("I am in loop: " + i);
             int k_last = i - 1;
 
@@ -483,7 +518,8 @@ public class TaskTwo {
         // map Output: one object; mapToPair Output: Tuple2<key, value>
         // flatMap Output: iterator<Object>; flatMapToPair Output: iterator<Tuple2<key,value>>
 
-        output.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath + "task_two_result");
+//        output.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath + "task_two_result");
+        output.saveAsTextFile(outputDataPath + "task_two_result");
 //        patient_single_gene_list_pair_rdd.saveAsTextFile(outputDataPath + "patient_single_gene_list_pair_rdd");
         sc.close();
 
