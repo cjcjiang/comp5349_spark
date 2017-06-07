@@ -395,7 +395,7 @@ public class TaskTwo {
                     for(List<String> inner_temp_list : temp){
                         String out_string_temp = "";
                         for(String temp_string:inner_temp_list){
-                            out_string_temp = out_string_temp + ";" + temp_string;
+                            out_string_temp = temp_string + ";" + out_string_temp;
                         }
                         temp_1.add(out_string_temp);
                     }
@@ -412,7 +412,7 @@ public class TaskTwo {
         // flatMap Output: iterator<Object>; flatMapToPair Output: iterator<Tuple2<key,value>>
 
 //        output.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath + "task_two_result");
-        output.saveAsTextFile(outputDataPath + "task_two_result");
+        output.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath + "task_two_result");
 //        patient_single_gene_list_pair_rdd.saveAsTextFile(outputDataPath + "patient_single_gene_list_pair_rdd");
         sc.close();
 
