@@ -163,6 +163,10 @@ public class TaskTwo {
         JavaPairRDD<String,Integer> gene_set = gene_set_size_1_pair_rdd;
 //        System.out.println("I have passed gene_set");
 
+        // Broadcast patient_divided_single_gene_list_rdd
+        List<List<String>> patient_divided_single_gene_list = patient_divided_single_gene_list_rdd.collect();
+        Broadcast<List<List<String>>> bc_list_patient_divided_single_gene_list = sc.broadcast(patient_divided_single_gene_list);
+
         // Start the iteration
         // With JavaPairRDD<String,Integer> gene_set
         for(int i=2;i<=k_default;i++){
