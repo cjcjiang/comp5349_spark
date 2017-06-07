@@ -373,14 +373,38 @@ public class TaskTwo {
         // Change gene_set to the output format
         // Input JavaPairRDD<String, Integer>
         // Output JavaPairRDD<Integer, String>
-//        JavaPairRDD<Integer, String> output = gene_set
-//                .mapToPair(tuple -> {
-//                    String gene_set_string = tuple._1;
-//                    Integer gene_set_num = tuple._2;
-//                    Tuple2<Integer, String> temp = new Tuple2<>(gene_set_num, gene_set_string);
-//                    return temp;
-//                })
-//                .reduceByKey((s1,s2)->s1+"\t"+s2);
+        JavaPairRDD<Integer, String> output = gene_set
+                .mapToPair(tuple -> {
+                    List<List<String>> temp_list = new ArrayList<>();
+                    List<String> gene_set_list = tuple._1;
+                    temp_list.add(gene_set_list);
+                    Integer gene_set_num = tuple._2;
+                    Tuple2<Integer, List<List<String>>> temp = new Tuple2<>(gene_set_num, temp_list);
+                    return temp;
+                })
+                .reduceByKey((l1,l2)->{
+                    List<List<String>> temp = new ArrayList<>();
+                    temp.addAll(l1);
+                    temp.addAll(l2);
+                    return temp;
+                })
+                .mapToPair(tuple->{
+                    Integer supp = tuple._1;
+                    List<List<String>> temp = tuple._2;
+                    List<String> temp_1 = new ArrayList<>();
+                    for(List<String> inner_temp_list : temp){
+                        String out_string_temp = "";
+                        for(String temp_string:inner_temp_list){
+                            out_string_temp = out_string_temp + ";" + temp_string;
+                        }
+                        temp_1.add(out_string_temp);
+                    }
+                    String out_string = "";
+                    for(String inner_temp_string: temp_1){
+                        out_string = out_string + "\t" + inner_temp_string;
+                    }
+                    return new Tuple2<>(supp, out_string);
+                });
 
         // For JavaRDDLike, functions like map, mapToPair, flatMap, flatMapToPair
         // Input, everything in <>, can be object for JavaRDD, or Tuple2 for JavaPairRDD
@@ -388,7 +412,7 @@ public class TaskTwo {
         // flatMap Output: iterator<Object>; flatMapToPair Output: iterator<Tuple2<key,value>>
 
 //        output.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath + "task_two_result");
-        gene_set.saveAsTextFile(outputDataPath + "task_two_result");
+        output.saveAsTextFile(outputDataPath + "task_two_result");
 //        patient_single_gene_list_pair_rdd.saveAsTextFile(outputDataPath + "patient_single_gene_list_pair_rdd");
         sc.close();
 
