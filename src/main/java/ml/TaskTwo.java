@@ -205,7 +205,22 @@ public class TaskTwo {
                     .map(tuple -> tuple._1)
                     .collect();
             Broadcast<List<String>> bc_gene_set_size_k_last_list = sc.broadcast(gene_set_size_k_last_list);
-            List<String> gene_set_size_k_list = gene_set_size_1_pair_rdd
+//            List<String> gene_set_size_k_list = gene_set_size_1_pair_rdd
+//                    .flatMap(single_gene -> {
+//                        List<String> bc_gene_set_size_k_last_list_value = bc_gene_set_size_k_last_list.value();
+//                        List<String> part_gene_set_size_k_list = new ArrayList<>();
+//                        for(String gene_set_size_k_last : bc_gene_set_size_k_last_list_value){
+//                            String[] single_gene_array_in_gene_set_size_k_last = gene_set_size_k_last.split(";");
+//                            List<String> single_gene_list_in_gene_set_size_k_last = Arrays.asList(single_gene_array_in_gene_set_size_k_last);
+//                            if(single_gene_list_in_gene_set_size_k_last.stream().noneMatch(string -> string.equals(single_gene))){
+//                                String gene_set_size_k_string = gene_set_size_k_last + ";" + single_gene;
+//                                part_gene_set_size_k_list.add(gene_set_size_k_string);
+//                            }
+//                        }
+//                        return part_gene_set_size_k_list.iterator();
+//                    })
+//                    .collect();
+            JavaRDD<String> gene_set_size_k_list_rdd = gene_set_size_1_pair_rdd
                     .flatMap(single_gene -> {
                         List<String> bc_gene_set_size_k_last_list_value = bc_gene_set_size_k_last_list.value();
                         List<String> part_gene_set_size_k_list = new ArrayList<>();
@@ -218,8 +233,7 @@ public class TaskTwo {
                             }
                         }
                         return part_gene_set_size_k_list.iterator();
-                    })
-                    .collect();
+                    });
 
 
                     // Have and broadcast the list store all of the k=1 single gene
@@ -274,7 +288,7 @@ public class TaskTwo {
 
             // Broadcast gene_set_size_k_list
             // TODO: low efficiency
-            Broadcast<List<String>> bc_gene_set_size_k_list = sc.broadcast(gene_set_size_k_list);
+//            Broadcast<List<String>> bc_gene_set_size_k_list = sc.broadcast(gene_set_size_k_list);
 //            System.out.println("I have passed the broadcast");
 
             // Count the support num and filter
@@ -368,20 +382,45 @@ public class TaskTwo {
 //                    });
 
             // Iterate the broadcast list, low efficiency
-            JavaPairRDD<String,Integer> gene_set_size_k = patient_divided_single_gene_list_rdd
-                    .flatMapToPair(patient_divided_single_gene_list -> {
+//            JavaPairRDD<String,Integer> gene_set_size_k = patient_divided_single_gene_list_rdd
+//                    .flatMapToPair(patient_divided_single_gene_list -> {
+//                        List<Tuple2<String, Integer>> part_gene_set_size_k_list = new ArrayList<>();
+//                        List<String> bc_gene_set_size_k_list_value = bc_gene_set_size_k_list.value();
+//                        for(String gene_set_size_k_string : bc_gene_set_size_k_list_value){
+//                            String[] single_gene_array_in_gene_set_size_k = gene_set_size_k_string.split(";");
+//                            List<String> single_gene_list_in_gene_set_size_k = Arrays.asList(single_gene_array_in_gene_set_size_k);
+//                            // If this patient contains all the single genes in this k size gene set, Integer will be 1, else will be 0
+//                            if(patient_divided_single_gene_list.containsAll(single_gene_list_in_gene_set_size_k)){
+//                                Tuple2<String, Integer> temp = new Tuple2<>(gene_set_size_k_string,1);
+//                                part_gene_set_size_k_list.add(temp);
+//                            }
+//                        }
+//                        return  part_gene_set_size_k_list.iterator();
+//                    })
+//                    .reduceByKey((n1,n2) -> n1+n2)
+//                    .filter(tuple -> {
+//                        Integer gene_support_num = tuple._2;
+//                        if(gene_support_num<support_num){
+//                            return false;
+//                        }else{
+//                            return true;
+//                        }
+//                    });
+
+            // Reverse the join, success for small set (30s), fail for large set
+            // Candidate gene set size k join each patient's whole gene list (small: nKB, large: 700MB)
+//            JavaRDD<String> gene_set_size_k_list_rdd = sc.parallelize(gene_set_size_k_list);
+            JavaPairRDD<String,Integer> gene_set_size_k = gene_set_size_k_list_rdd
+                    .flatMapToPair(gene_set_size_k_string -> {
+                        List<List<String>> list_patient_divided_single_gene_list = bc_list_patient_divided_single_gene_list.value();
                         List<Tuple2<String, Integer>> part_gene_set_size_k_list = new ArrayList<>();
-                        List<String> bc_gene_set_size_k_list_value = bc_gene_set_size_k_list.value();
-                        for(String gene_set_size_k_string : bc_gene_set_size_k_list_value){
-                            String[] single_gene_array_in_gene_set_size_k = gene_set_size_k_string.split(";");
-                            List<String> single_gene_list_in_gene_set_size_k = Arrays.asList(single_gene_array_in_gene_set_size_k);
-                            // If this patient contains all the single genes in this k size gene set, Integer will be 1, else will be 0
-                            if(patient_divided_single_gene_list.containsAll(single_gene_list_in_gene_set_size_k)){
-                                Tuple2<String, Integer> temp = new Tuple2<>(gene_set_size_k_string,1);
-                                part_gene_set_size_k_list.add(temp);
-                            }
+                        String[] single_gene_array_in_gene_set_size_k = gene_set_size_k_string.split(";");
+                        List<String> single_gene_list_in_gene_set_size_k = Arrays.asList(single_gene_array_in_gene_set_size_k);
+                        if(list_patient_divided_single_gene_list.containsAll(single_gene_list_in_gene_set_size_k)){
+                            Tuple2<String, Integer> temp = new Tuple2<>(gene_set_size_k_string,1);
+                            part_gene_set_size_k_list.add(temp);
                         }
-                        return  part_gene_set_size_k_list.iterator();
+                        return part_gene_set_size_k_list.iterator();
                     })
                     .reduceByKey((n1,n2) -> n1+n2)
                     .filter(tuple -> {
