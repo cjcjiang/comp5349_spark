@@ -290,18 +290,22 @@ public class TaskTwo {
             System.out.println("gene_set_size_k_list size is: " + gene_set_size_k_list.size());
 
             // Car try
-            JavaRDD<List<String>> gene_set_size_k_rdd = sc.parallelize(gene_set_size_k_list);
-            JavaPairRDD<List<String>, List<String>> car_result = patient_divided_single_gene_list_rdd.cartesian(gene_set_size_k_rdd);
-            JavaPairRDD<List<String>,Integer> gene_set_size_k = car_result
-                    .mapToPair(tuple -> {
+//            JavaRDD<List<String>> gene_set_size_k_rdd = sc.parallelize(gene_set_size_k_list);
+            Broadcast<List<List<String>>> bc_gene_set_size_k_list = sc.broadcast(gene_set_size_k_list);
+            JavaPairRDD<List<String>,Integer> gene_set_size_k = patient_divided_single_gene_list_rdd
+                    .cartesian(sc.parallelize(bc_gene_set_size_k_list.value(),1))
+                    .filter(tuple -> {
                         List<String> patient_whole_gene_list = tuple._1;
                         List<String> gene_set_size_k_list_in_car = tuple._2;
-                        Tuple2<List<String>, Integer> temp;
                         if(patient_whole_gene_list.containsAll(gene_set_size_k_list_in_car)){
-                            temp = new Tuple2<>(gene_set_size_k_list_in_car, 1);
+                            return true;
                         }else{
-                            temp = new Tuple2<>(gene_set_size_k_list_in_car, 0);
+                            return false;
                         }
+                    })
+                    .mapToPair(tuple -> {
+                        List<String> gene_set_size_k_list_in_car = tuple._2;
+                        Tuple2<List<String>, Integer> temp = new Tuple2<>(gene_set_size_k_list_in_car, 1);
                         return temp;
                     })
                     .reduceByKey((n1,n2) -> n1+n2)
