@@ -85,6 +85,8 @@ public class TaskTwo {
                     return result;
                 });
 
+        System.out.println("The number of all of the patients is: " + patient_id_data_raw.count());
+
         // Filter out the header line
         // Select out the patients' id who have cancer
         // Make patients' id as the key, diseases as the value
@@ -105,6 +107,8 @@ public class TaskTwo {
             Tuple2<String, String> temp = new Tuple2<>(patient_id,diseases);
             return temp;
         });
+
+        System.out.println("The number of all of cancer patients is: " + cancer_patient_id.count());
 
         // TODO: join zhi qian jian shao parrel fen bu
         JavaPairRDD<String, Tuple2<String, Tuple2<String,Integer>>> cancer_patient_diseases_gene_value = cancer_patient_id.join(genes_strongly_expressed);
@@ -224,7 +228,8 @@ public class TaskTwo {
                     List<String> gene_set_size_1_list = new ArrayList<>();
                     gene_set_size_1_list.add(single_gene);
                     return new Tuple2<>(gene_set_size_1_list, support);
-                });
+                })
+                .cache();
 //        System.out.println("I have passed gene_set");
 
         // Broadcast patient_divided_single_gene_list_rdd
@@ -280,11 +285,34 @@ public class TaskTwo {
                         });
 
                 gene_set_size_k_list = gene_set_size_k_rdd.collect();
-                // Broadcast<List<String>> bc_gene_set_size_k_list = sc.broadcast(gene_set_size_k_list);
-
             }
 
             System.out.println("gene_set_size_k_list size is: " + gene_set_size_k_list.size());
+
+            // Car try
+            JavaRDD<List<String>> gene_set_size_k_rdd = sc.parallelize(gene_set_size_k_list);
+            JavaPairRDD<List<String>, List<String>> car_result = patient_divided_single_gene_list_rdd.cartesian(gene_set_size_k_rdd);
+            JavaPairRDD<List<String>,Integer> gene_set_size_k = car_result
+                    .mapToPair(tuple -> {
+                        List<String> patient_whole_gene_list = tuple._1;
+                        List<String> gene_set_size_k_list_in_car = tuple._2;
+                        Tuple2<List<String>, Integer> temp;
+                        if(patient_whole_gene_list.containsAll(gene_set_size_k_list_in_car)){
+                            temp = new Tuple2<>(gene_set_size_k_list_in_car, 1);
+                        }else{
+                            temp = new Tuple2<>(gene_set_size_k_list_in_car, 0);
+                        }
+                        return temp;
+                    })
+                    .reduceByKey((n1,n2) -> n1+n2)
+                    .filter(tuple -> {
+                        Integer gene_support_num = tuple._2;
+                        if(gene_support_num<support_num){
+                            return false;
+                        }else{
+                            return true;
+                        }
+                    });
 
             // To have the k size item set
             // First, filter out only the k-1 size gene set and store it in a list
@@ -298,28 +326,28 @@ public class TaskTwo {
 //            System.out.println("The size of gene_set_size_k_list is: " + gene_set_size_k_list.size());
 
             // Iterate the broadcast list, low efficiency
-            JavaPairRDD<List<String>,Integer> gene_set_size_k = patient_divided_single_gene_list_rdd
-                    .flatMapToPair(patient_divided_single_gene_list -> {
-                        List<Tuple2<List<String>, Integer>> part_gene_set_size_k_list = new ArrayList<>();
-                        for(List<String> gene_set_in_gene_set_size_k_list : gene_set_size_k_list){
-                            // If this patient contains all the single genes in this k size gene set, Integer will be 1, else will be 0
-                            boolean flag = gene_set_in_gene_set_size_k_list.stream().allMatch(single_gene -> patient_divided_single_gene_list.contains(single_gene));
-                            if(flag){
-                                Tuple2<List<String>, Integer> temp = new Tuple2<>(gene_set_in_gene_set_size_k_list,1);
-                                part_gene_set_size_k_list.add(temp);
-                            }
-                        }
-                        return  part_gene_set_size_k_list.iterator();
-                    })
-                    .reduceByKey((n1,n2) -> n1+n2)
-                    .filter(tuple -> {
-                        Integer gene_support_num = tuple._2;
-                        if(gene_support_num<support_num){
-                            return false;
-                        }else{
-                            return true;
-                        }
-                    });
+//            JavaPairRDD<List<String>,Integer> gene_set_size_k = patient_divided_single_gene_list_rdd
+//                    .flatMapToPair(patient_divided_single_gene_list -> {
+//                        List<Tuple2<List<String>, Integer>> part_gene_set_size_k_list = new ArrayList<>();
+//                        for(List<String> gene_set_in_gene_set_size_k_list : gene_set_size_k_list){
+//                            // If this patient contains all the single genes in this k size gene set, Integer will be 1, else will be 0
+//                            boolean flag = gene_set_in_gene_set_size_k_list.stream().allMatch(single_gene -> patient_divided_single_gene_list.contains(single_gene));
+//                            if(flag){
+//                                Tuple2<List<String>, Integer> temp = new Tuple2<>(gene_set_in_gene_set_size_k_list,1);
+//                                part_gene_set_size_k_list.add(temp);
+//                            }
+//                        }
+//                        return  part_gene_set_size_k_list.iterator();
+//                    })
+//                    .reduceByKey((n1,n2) -> n1+n2)
+//                    .filter(tuple -> {
+//                        Integer gene_support_num = tuple._2;
+//                        if(gene_support_num<support_num){
+//                            return false;
+//                        }else{
+//                            return true;
+//                        }
+//                    });
 
             // Reverse join
 //            JavaRDD<List<String>> gene_set_size_k_rdd = sc.parallelize(gene_set_size_k_list);
