@@ -31,6 +31,7 @@ public class TaskTwo {
         final Integer k_user;
         final String inputDataPath;
         final String outputDataPath;
+        Integer k_temp;
 
         // TODO: user define max k size
 
@@ -39,15 +40,15 @@ public class TaskTwo {
             inputDataPath = args[0];
             outputDataPath = args[1];
             support_value = Double.parseDouble(args[2]);
-            k_user = Integer.parseInt(args[3]);
-            System.out.println("The minimum support is set to: " + support_value + "; the maximum itemset size is set to: " + k_user);
+            k_temp = Integer.parseInt(args[3]);
+            System.out.println("The minimum support is set to: " + support_value + "; the maximum itemset size is set to: " + k_temp);
         }else{
             inputDataPath = args[0];
             outputDataPath = args[1];
             support_value = support_value_default;
-            k_user = k_default;
+            k_temp = k_default;
             System.out.println("Wrong command, all things are set to default.");
-            System.out.println("The minimum support is set to: " + support_value + "; the maximum itemset size is set to: " + k_user);
+            System.out.println("The minimum support is set to: " + support_value + "; the maximum itemset size is set to: " + k_temp);
         }
 
         SparkConf conf = new SparkConf();
@@ -85,8 +86,6 @@ public class TaskTwo {
                     return result;
                 });
 
-        System.out.println("The number of all of the patients is: " + patient_id_data_raw.count());
-
         // Filter out the header line
         // Select out the patients' id who have cancer
         // Make patients' id as the key, diseases as the value
@@ -108,9 +107,6 @@ public class TaskTwo {
             return temp;
         });
 
-        System.out.println("The number of all of cancer patients is: " + cancer_patient_id.count());
-
-        // TODO: join zhi qian jian shao parrel fen bu
         JavaPairRDD<String, Tuple2<String, Tuple2<String,Integer>>> cancer_patient_diseases_gene_value = cancer_patient_id.join(genes_strongly_expressed);
 
         // Prepare for the iteration
@@ -144,13 +140,19 @@ public class TaskTwo {
 
         // Prepare for the iteration
         // Get the largest number for item set size k
-        Integer k_max = patient_divided_single_gene_list_rdd
+        final Integer k_max = patient_divided_single_gene_list_rdd
                 .map(list -> {
                     Integer list_size = list.size();
                     return list_size;
                 })
                 .max(new KMaxComparator());
-        System.out.println("The max k should be: " + k_max);
+        if(k_temp>k_max){
+            k_user = k_max;
+            System.out.println("The max k should be: " + k_max);
+            System.out.println("The max k is changed to: " + k_user);
+        }else{
+            k_user = k_temp;
+        }
 
         // Have the k=1 item sets, also used as the PairRDD to store all the item sets
         // Input JavaRDD<List<String>>
@@ -178,22 +180,22 @@ public class TaskTwo {
                     }
                 })
                 .cache();
-        Long distinct_gene_num = gene_set_size_1_pair_rdd.count();
+//        Long distinct_gene_num = gene_set_size_1_pair_rdd.count();
 
         // Have the eff test
-        JavaPairRDD<String,Integer> gene_set_size_1_no_filter = patient_divided_single_gene_list_rdd
-                .flatMapToPair(list -> {
-                    List<Tuple2<String, Integer>> gene_set_size_1_list_temp = new ArrayList<>();
-                    for(String s : list){
-                        Integer count_num = 1;
-                        Tuple2<String, Integer> temp = new Tuple2<>(s, count_num);
-                        gene_set_size_1_list_temp.add(temp);
-                    }
-                    return gene_set_size_1_list_temp.iterator();
-                })
-                .reduceByKey((n1, n2) -> n1 + n2);
-        Long distinct_gene_num_no_filter = gene_set_size_1_no_filter.count();
-        System.out.println("Before filter gene type num is: " + distinct_gene_num_no_filter + "; after filter it is: " + distinct_gene_num);
+//        JavaPairRDD<String,Integer> gene_set_size_1_no_filter = patient_divided_single_gene_list_rdd
+//                .flatMapToPair(list -> {
+//                    List<Tuple2<String, Integer>> gene_set_size_1_list_temp = new ArrayList<>();
+//                    for(String s : list){
+//                        Integer count_num = 1;
+//                        Tuple2<String, Integer> temp = new Tuple2<>(s, count_num);
+//                        gene_set_size_1_list_temp.add(temp);
+//                    }
+//                    return gene_set_size_1_list_temp.iterator();
+//                })
+//                .reduceByKey((n1, n2) -> n1 + n2);
+//        Long distinct_gene_num_no_filter = gene_set_size_1_no_filter.count();
+//        System.out.println("Before filter gene type num is: " + distinct_gene_num_no_filter + "; after filter it is: " + distinct_gene_num);
 
         List<String> single_gene_in_gene_set_size_1_list = gene_set_size_1_pair_rdd.keys().collect();
         Broadcast<List<String>> bc_single_gene_in_gene_set_size_1_list = sc.broadcast(single_gene_in_gene_set_size_1_list);
@@ -229,7 +231,6 @@ public class TaskTwo {
                     return new Tuple2<>(gene_set_size_1_list, support);
                 })
                 .cache();
-//        System.out.println("I have passed gene_set");
 
         // Broadcast patient_divided_single_gene_list_rdd
 //        List<List<String>> patient_divided_single_gene_list = patient_divided_single_gene_list_rdd.collect();
@@ -240,7 +241,7 @@ public class TaskTwo {
         boolean loop_continue_flag = true;
         int i =2;
         while((i<=k_user)&&loop_continue_flag){
-            System.out.println("I am in loop: " + i);
+            System.out.println("Checking for candidate itemset with size: " + i);
             int k_last = i - 1;
 
             JavaRDD<List<String>> gene_set_size_k_rdd;
@@ -318,6 +319,7 @@ public class TaskTwo {
             int gene_set_size_k_size = gene_set_size_k.collect().size();
             if(gene_set_size_k_size==0){
                 loop_continue_flag = false;
+                System.out.println("For itemset size " + i + ", none of the candidate has passed the support check, the loop will stop.");
             }
 
             // Iterate the broadcast list, low efficiency
@@ -370,79 +372,28 @@ public class TaskTwo {
 
             // Have a list to store gene set size k
             List<Tuple2<List<String>,Integer>> gene_set_this_loop_list = gene_set_size_k.collect();
-            System.out.println("The size of gene_set_this_loop_list is: " + gene_set_this_loop_list.size());
-//            if(gene_set_this_loop_list.size()!=0){
-//                System.out.println("The first one of gene_set_this_loop_list is: " + gene_set_this_loop_list.get(0)._1.toString());
-//            }
+//            System.out.println("The size of gene_set_this_loop_list is: " + gene_set_this_loop_list.size());
 
             // Have the list of gene_set without gene set size k
             List<Tuple2<List<String>,Integer>> gene_set_previous_loop_list = gene_set.collect();
-            System.out.println("The size of gene_set_previous_loop_list is: " + gene_set_previous_loop_list.size());
+//            System.out.println("The size of gene_set_previous_loop_list is: " + gene_set_previous_loop_list.size());
 
             // Merge gene_set_full_list and gene_set_size_k_string_int_tuple_list
             List<Tuple2<List<String>, Integer>> loop_final_list = new ArrayList<>();
             loop_final_list.addAll(gene_set_this_loop_list);
             loop_final_list.addAll(gene_set_previous_loop_list);
-            System.out.println("The size of loop_final_list is: " + loop_final_list.size());
+//            System.out.println("The size of loop_final_list is: " + loop_final_list.size());
 
             // Convert gene_set_full_list to JavaPairRDD and cache this in memory
             gene_set = sc
                     .parallelize(loop_final_list)
                     .mapToPair(tuple -> tuple)
                     .cache();
-
-//                JavaRDD<String> output = sc
-//                        .parallelize(gene_set_this_loop_list)
-//                        .mapToPair(tuple -> {
-//                            List<String> gene_set_list = tuple._1;
-//                            Integer gene_set_num = tuple._2;
-//                            Tuple2<Integer, List<String>> temp = new Tuple2<>(gene_set_num, gene_set_list);
-//                            return temp;
-//                        })
-//                        .aggregateByKey(
-//                                new ArrayList<List<String>>(),
-//                                1,
-//                                (merge_value, in_value) -> {
-//                                    List<String> temp = in_value;
-//                                    ArrayList<List<String>> temp_return = new ArrayList<>();
-//                                    temp_return.add(temp);
-//                                    return temp_return;
-//                                },
-//                                (merge_value_1, merge_value_2) -> {
-//                                    ArrayList<List<String>> temp_return = new ArrayList<>();
-//                                    temp_return.addAll(merge_value_1);
-//                                    temp_return.addAll(merge_value_2);
-//                                    return temp_return;
-//                                }
-//                        )
-//                        .sortByKey()
-//                        .map(tuple->{
-//                            Integer supp = tuple._1;
-//                            List<List<String>> gene_set_list = tuple._2;
-//                            List<String> gene_set_semi_string_in_one_int = new ArrayList<>();
-//                            for(List<String> gene_set_container : gene_set_list){
-//                                for(String single_gene_in_gene_set_container : gene_set_container){
-//                                    String inner_string_temp = "";
-//                                    inner_string_temp = single_gene_in_gene_set_container + ";" + inner_string_temp;
-//                                    gene_set_semi_string_in_one_int.add(inner_string_temp);
-//                                }
-//                            }
-//                            String outer_string_temp = "";
-//                            for(String gene_set_semi_string : gene_set_semi_string_in_one_int){
-//                                outer_string_temp = gene_set_semi_string + "\t" + outer_string_temp;
-//                            }
-//                            outer_string_temp = supp + "\t" + outer_string_temp;
-//                            return outer_string_temp;
-//                        });
-            gene_set.saveAsTextFile(outputDataPath + "gene_set_size_1_pair_rdd_" + i);
             i++;
-
-//            gene_set_size_k.saveAsTextFile(outputDataPath + "task_two_result_" + i);
         }
 
         // Change gene_set to the output format
         // Input List<String> Integer
-        // TODO: lost all size 2 pair, no idea where is wrong
         JavaRDD<String> output = gene_set
                 .mapToPair(tuple -> {
                     List<String> gene_set_list = tuple._1;
@@ -484,47 +435,6 @@ public class TaskTwo {
                     return outer_string_temp;
                 });
 
-//        JavaRDD<String> output = gene_set
-//                .mapToPair(tuple -> {
-//                    List<List<String>> temp_list = new ArrayList<>();
-//                    List<String> gene_set_list = tuple._1;
-//                    temp_list.add(gene_set_list);
-//                    Integer gene_set_num = tuple._2;
-//                    Tuple2<Integer, List<List<String>>> temp = new Tuple2<>(gene_set_num, temp_list);
-//                    return temp;
-//                })
-//                .reduceByKey((l1,l2)->{
-//                    List<List<String>> temp = new ArrayList<>();
-//                    temp.addAll(l1);
-//                    temp.addAll(l2);
-//                    return temp;
-//                })
-//                .map(tuple->{
-//                    Integer supp = tuple._1;
-//                    List<List<String>> temp = tuple._2;
-//                    List<String> temp_1 = new ArrayList<>();
-//                    for(List<String> inner_temp_list : temp){
-//                        for(String temp_string:inner_temp_list){
-//                            String inner_string_temp = "";
-//                            inner_string_temp = temp_string + ";" + inner_string_temp;
-//                            temp_1.add(inner_string_temp);
-//                        }
-//                    }
-//                    String outer_string_temp = "";
-//                    for(String gene_set_semi_string : temp_1){
-//                        outer_string_temp = gene_set_semi_string + "\t" + outer_string_temp;
-//                    }
-//                    outer_string_temp = supp + "\t" + outer_string_temp;
-//                    return outer_string_temp;
-//                });
-
-        // For JavaRDDLike, functions like map, mapToPair, flatMap, flatMapToPair
-        // Input, everything in <>, can be object for JavaRDD, or Tuple2 for JavaPairRDD
-        // map Output: one object; mapToPair Output: Tuple2<key, value>
-        // flatMap Output: iterator<Object>; flatMapToPair Output: iterator<Tuple2<key,value>>
-
-//        output.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath + "task_two_result");
-        gene_set.saveAsTextFile(outputDataPath + "gene_set_final");
         output.saveAsTextFile(outputDataPath + "task_two_result");
         sc.close();
 
