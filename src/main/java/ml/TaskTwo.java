@@ -452,13 +452,15 @@ public class TaskTwo {
                 })
                 .aggregateByKey(
                         "",
-                        (merge_value, in_value) -> {
+                        1,
+                        (last_merge_value, in_value) -> {
                             List<String> temp = in_value;
-                            String merge = "";
+                            String this_merge = "";
                             for(String s : temp){
-                                merge = s + ";" + merge;
+                                this_merge = s + ";" + this_merge;
                             }
-                            return merge;
+                            this_merge = this_merge + "\t" + last_merge_value;
+                            return this_merge;
                         },
                         (merge_value_1, merge_value_2) -> {
                             String m1 = merge_value_1;
