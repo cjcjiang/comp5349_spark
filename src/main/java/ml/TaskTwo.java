@@ -371,9 +371,9 @@ public class TaskTwo {
             // Have a list to store gene set size k
             List<Tuple2<List<String>,Integer>> gene_set_this_loop_list = gene_set_size_k.collect();
             System.out.println("The size of gene_set_this_loop_list is: " + gene_set_this_loop_list.size());
-            if(gene_set_this_loop_list.size()!=0){
-                System.out.println("The first one of gene_set_this_loop_list is: " + gene_set_this_loop_list.get(0)._1.toString());
-            }
+//            if(gene_set_this_loop_list.size()!=0){
+//                System.out.println("The first one of gene_set_this_loop_list is: " + gene_set_this_loop_list.get(0)._1.toString());
+//            }
 
             // Have the list of gene_set without gene set size k
             List<Tuple2<List<String>,Integer>> gene_set_previous_loop_list = gene_set.collect();
@@ -390,54 +390,52 @@ public class TaskTwo {
                     .parallelize(loop_final_list)
                     .mapToPair(tuple -> tuple)
                     .cache();
-//            gene_set = gene_set.union(gene_set_size_k).coalesce(3).cache();
-            i++;
 
-            if(!((i<=k_user)&&loop_continue_flag)){
-                JavaRDD<String> output = gene_set
-                        .mapToPair(tuple -> {
-                            List<String> gene_set_list = tuple._1;
-                            Integer gene_set_num = tuple._2;
-                            Tuple2<Integer, List<String>> temp = new Tuple2<>(gene_set_num, gene_set_list);
-                            return temp;
-                        })
-                        .aggregateByKey(
-                                new ArrayList<List<String>>(),
-                                1,
-                                (merge_value, in_value) -> {
-                                    List<String> temp = in_value;
-                                    ArrayList<List<String>> temp_return = new ArrayList<>();
-                                    temp_return.add(temp);
-                                    return temp_return;
-                                },
-                                (merge_value_1, merge_value_2) -> {
-                                    ArrayList<List<String>> temp_return = new ArrayList<>();
-                                    temp_return.addAll(merge_value_1);
-                                    temp_return.addAll(merge_value_2);
-                                    return temp_return;
-                                }
-                        )
-                        .sortByKey()
-                        .map(tuple->{
-                            Integer supp = tuple._1;
-                            List<List<String>> gene_set_list = tuple._2;
-                            List<String> gene_set_semi_string_in_one_int = new ArrayList<>();
-                            for(List<String> gene_set_container : gene_set_list){
-                                for(String single_gene_in_gene_set_container : gene_set_container){
-                                    String inner_string_temp = "";
-                                    inner_string_temp = single_gene_in_gene_set_container + ";" + inner_string_temp;
-                                    gene_set_semi_string_in_one_int.add(inner_string_temp);
-                                }
-                            }
-                            String outer_string_temp = "";
-                            for(String gene_set_semi_string : gene_set_semi_string_in_one_int){
-                                outer_string_temp = gene_set_semi_string + "\t" + outer_string_temp;
-                            }
-                            outer_string_temp = supp + "\t" + outer_string_temp;
-                            return outer_string_temp;
-                        });
-                output.saveAsTextFile(outputDataPath + "gene_set_size_1_pair_rdd");
-            }
+//                JavaRDD<String> output = sc
+//                        .parallelize(gene_set_this_loop_list)
+//                        .mapToPair(tuple -> {
+//                            List<String> gene_set_list = tuple._1;
+//                            Integer gene_set_num = tuple._2;
+//                            Tuple2<Integer, List<String>> temp = new Tuple2<>(gene_set_num, gene_set_list);
+//                            return temp;
+//                        })
+//                        .aggregateByKey(
+//                                new ArrayList<List<String>>(),
+//                                1,
+//                                (merge_value, in_value) -> {
+//                                    List<String> temp = in_value;
+//                                    ArrayList<List<String>> temp_return = new ArrayList<>();
+//                                    temp_return.add(temp);
+//                                    return temp_return;
+//                                },
+//                                (merge_value_1, merge_value_2) -> {
+//                                    ArrayList<List<String>> temp_return = new ArrayList<>();
+//                                    temp_return.addAll(merge_value_1);
+//                                    temp_return.addAll(merge_value_2);
+//                                    return temp_return;
+//                                }
+//                        )
+//                        .sortByKey()
+//                        .map(tuple->{
+//                            Integer supp = tuple._1;
+//                            List<List<String>> gene_set_list = tuple._2;
+//                            List<String> gene_set_semi_string_in_one_int = new ArrayList<>();
+//                            for(List<String> gene_set_container : gene_set_list){
+//                                for(String single_gene_in_gene_set_container : gene_set_container){
+//                                    String inner_string_temp = "";
+//                                    inner_string_temp = single_gene_in_gene_set_container + ";" + inner_string_temp;
+//                                    gene_set_semi_string_in_one_int.add(inner_string_temp);
+//                                }
+//                            }
+//                            String outer_string_temp = "";
+//                            for(String gene_set_semi_string : gene_set_semi_string_in_one_int){
+//                                outer_string_temp = gene_set_semi_string + "\t" + outer_string_temp;
+//                            }
+//                            outer_string_temp = supp + "\t" + outer_string_temp;
+//                            return outer_string_temp;
+//                        });
+            gene_set.saveAsTextFile(outputDataPath + "gene_set_size_1_pair_rdd_" + i);
+            i++;
 
 //            gene_set_size_k.saveAsTextFile(outputDataPath + "task_two_result_" + i);
         }
@@ -445,48 +443,37 @@ public class TaskTwo {
         // Change gene_set to the output format
         // Input List<String> Integer
         // TODO: lost all size 2 pair, no idea where is wrong
-//        JavaRDD<String> output = gene_set
-//                .mapToPair(tuple -> {
-//                    List<String> gene_set_list = tuple._1;
-//                    Integer gene_set_num = tuple._2;
-//                    Tuple2<Integer, List<String>> temp = new Tuple2<>(gene_set_num, gene_set_list);
-//                    return temp;
-//                })
-//                .aggregateByKey(
-//                        new ArrayList<List<String>>(),
-//                        1,
-//                        (merge_value, in_value) -> {
-//                            List<String> temp = in_value;
-//                            ArrayList<List<String>> temp_return = new ArrayList<>();
-//                            temp_return.add(temp);
-//                            return temp_return;
-//                        },
-//                        (merge_value_1, merge_value_2) -> {
-//                            ArrayList<List<String>> temp_return = new ArrayList<>();
-//                            temp_return.addAll(merge_value_1);
-//                            temp_return.addAll(merge_value_2);
-//                            return temp_return;
-//                        }
-//                )
-//                .sortByKey()
-//                .map(tuple->{
-//                    Integer supp = tuple._1;
-//                    List<List<String>> gene_set_list = tuple._2;
-//                    List<String> gene_set_semi_string_in_one_int = new ArrayList<>();
-//                    for(List<String> gene_set_container : gene_set_list){
-//                        for(String single_gene_in_gene_set_container : gene_set_container){
-//                            String inner_string_temp = "";
-//                            inner_string_temp = single_gene_in_gene_set_container + ";" + inner_string_temp;
-//                            gene_set_semi_string_in_one_int.add(inner_string_temp);
-//                        }
-//                    }
-//                    String outer_string_temp = "";
-//                    for(String gene_set_semi_string : gene_set_semi_string_in_one_int){
-//                        outer_string_temp = gene_set_semi_string + "\t" + outer_string_temp;
-//                    }
-//                    outer_string_temp = supp + "\t" + outer_string_temp;
-//                    return outer_string_temp;
-//                });
+        JavaRDD<String> output = gene_set
+                .mapToPair(tuple -> {
+                    List<String> gene_set_list = tuple._1;
+                    Integer gene_set_num = tuple._2;
+                    Tuple2<Integer, List<String>> temp = new Tuple2<>(gene_set_num, gene_set_list);
+                    return temp;
+                })
+                .aggregateByKey(
+                        "",
+                        (merge_value, in_value) -> {
+                            List<String> temp = in_value;
+                            String merge = "";
+                            for(String s : temp){
+                                merge = s + ";" + merge;
+                            }
+                            return merge;
+                        },
+                        (merge_value_1, merge_value_2) -> {
+                            String m1 = merge_value_1;
+                            String m2 = merge_value_2;
+                            String r_s = m1 + "\t" + m2;
+                            return r_s;
+                        }
+                )
+                .sortByKey()
+                .map(tuple->{
+                    Integer supp = tuple._1;
+                    String gene_set_list = tuple._2;
+                    String outer_string_temp = supp + "\t" + gene_set_list;
+                    return outer_string_temp;
+                });
 
 //        JavaRDD<String> output = gene_set
 //                .mapToPair(tuple -> {
@@ -528,8 +515,8 @@ public class TaskTwo {
         // flatMap Output: iterator<Object>; flatMapToPair Output: iterator<Tuple2<key,value>>
 
 //        output.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath + "task_two_result");
-//        output.saveAsTextFile(outputDataPath + "task_two_result");
-//        output.saveAsTextFile(outputDataPath + "gene_set_size_1_pair_rdd");
+        gene_set.saveAsTextFile(outputDataPath + "gene_set_final");
+        output.saveAsTextFile(outputDataPath + "task_two_result");
         sc.close();
 
     }
