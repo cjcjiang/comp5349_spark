@@ -69,13 +69,13 @@ public class TaskThree {
 
         System.out.println(finalItemSet.top(10));
 
+        // put the finalItemSet into a local List
+        List<Tuple2<String, Integer>> formattedResult =
+            finalItemSet
+                .collect();
 
-//        List<Tuple2<String, Integer>> formattedResult =
-//            finalItemSet
-//                .collect();
 
-
-
+        // format <R \t S, support>
         JavaPairRDD<String, Integer> filteredList=
             finalItemSet
                 .filter(s->s._1.contains(";"))
@@ -88,7 +88,7 @@ public class TaskThree {
                     for(List<String> item: temp) {
                         if (item.size() == 1) {
                             String tempItem = item.get(0);
-                            result.add(new Tuple2<>(tempItem, s._2));
+                            result.add(new Tuple2<>(tempItem + "\t"+ s._1, s._2));
                         }
                         else{
                             String tp = "";
@@ -99,7 +99,7 @@ public class TaskThree {
                                 else {
                                     tp = tp + ";" + i;
                                 }
-                                result.add(new Tuple2<>(tp, s._2));
+                                result.add(new Tuple2<>(tp + "\t" + s._1, s._2));
                             }
                         }
                     }
@@ -110,13 +110,28 @@ public class TaskThree {
         JavaPairRDD<String, Float> finalResult =
             filteredList
                 .mapToPair(s->{
-                    String largeSet = s._2._1;
-                    String[] temp = s._2._2.split("|");
-                    String subSet = temp[0];
-                    int subSupp = Integer.parseInt(temp[1]);
-                    int supp = s._1;
-                    float confidence_value = (float)supp/subSupp;
-                    return new Tuple2<String, Float>(subSet+"/t"+largeSet+"-"+subSet, confidence_value).swap();
+//                    String largeSet = s._2._1;
+//                    String[] temp = s._2._2.split("|");
+//                    String subSet = temp[0];
+//                    int subSupp = Integer.parseInt(temp[1]);
+//                    int supp = s._1;
+//                    float confidence_value = (float)supp/subSupp;
+//                    return new Tuple2<String, Float>(subSet+"/t"+largeSet+"-"+subSet, confidence_value).swap();
+
+                    String[] sets = s._1.split("/t");
+                    String largeSet = sets[1];
+                    String subSet = sets[0];
+                    Integer supp = s._2;
+                    Integer subSupp;
+                    Float confidence_value = 0f;
+                    String largeSetMinusSubSet = largeSet.replace(subSet, "");
+                    for(Tuple2<String, Integer> item: formattedResult){
+                        if(subSet.equals(item._1)){
+                            subSupp = item._2;
+                            confidence_value = (float)supp/subSupp;
+                        }
+                    }
+                    return new Tuple2<String, Float>(subSet+"\t"+largeSetMinusSubSet, confidence_value).swap();
                 })
                 .sortByKey(false)
                 .mapToPair(s->s.swap());
