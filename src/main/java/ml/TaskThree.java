@@ -54,39 +54,49 @@ public class TaskThree {
 //                return size_filtered_geneSet.iterator();
 //                });
 
-        // return format <{1,2}->{1}, 15>
+        // return format <item, support> eg. <45;12, 17>
         JavaPairRDD<String, Integer> finalItemSet =
             suppItemSet
                 .flatMapToPair(s->{
                     List<Tuple2<String, Integer>> finalSubSetResult = new ArrayList<>();
                     Integer supp = s._1;
-                    CombinationGenerator g = new CombinationGenerator();
                     String[] itemSet = s._2.split("\t");
                     for(String item: itemSet) {
-                        if(item.split(";").length>1) {
-                            List<String> temp = Arrays.asList(s._2.split(";"));
-                            List<List<String>> sub = g.getCombinations(temp, k);
-                            for(List list: sub){
-                                finalSubSetResult.add(new Tuple2<>(temp.toString()+"->"+list.toString(), supp));
+                                finalSubSetResult.add(new Tuple2<>(item, supp));
                             }
-                        }
-                        else{
-                            finalSubSetResult.add(new Tuple2<>(item, supp));
-                        }
-                    }
                     return finalSubSetResult.iterator();
-                });
+                }).cache();
 
         System.out.println(finalItemSet.top(10));
 
-        // format <150, {1,2}|10>
-        List<Tuple2<String, Integer>> formattedResult =
-            finalItemSet
-                .collect();
 
-        // joinResult format: (150, Tuple2<{1,2,3},{1,2}|10>)
-        JavaPairRDD<Integer, Tuple2<String,String>> joinResult = suppItemSet.join(formattedResult);
-        System.out.println(joinResult.top(10));
+//        List<Tuple2<String, Integer>> formattedResult =
+//            finalItemSet
+//                .collect();
+
+
+        JavaPairRDD<String, Integer> filteredList=
+            finalItemSet
+                .filter(s->s._1.contains(";"))
+                .flatMapToPair(s->{
+                    List<Tuple2<String, Integer>> result = new ArrayList<>();
+                    List<List<String>> temp = new ArrayList<>();
+                    List<String> itemSet = Arrays.asList(s._1.split(";"));
+                    CombinationGenerator g = new CombinationGenerator();
+                    temp = g.getCombinations(itemSet,k);
+                    for(List<String> item: temp) {
+                        if (item.size() == 1) {
+                            String tempItem = item.get(0);
+                            result.add(new Tuple2<>(tempItem, s._2));
+                        }
+                        else{
+                            for(String i:item){
+
+                            }
+                        }
+                    }
+                    return result.iterator();
+                });
 
         JavaPairRDD<String, Float> finalResult =
             joinResult
