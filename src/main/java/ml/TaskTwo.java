@@ -365,7 +365,7 @@ public class TaskTwo {
                             }
                             if(last_merge_value.equals("")){
                             }else{
-                                this_merge = this_merge + "\t" + last_merge_value;
+                                this_merge = last_merge_value + "\t" + this_merge;
                             }
                             return this_merge;
                         },

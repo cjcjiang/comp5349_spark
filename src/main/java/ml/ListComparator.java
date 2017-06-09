@@ -12,7 +12,7 @@ public class ListComparator implements Comparator<List<String>>, Serializable {
         int size_1 = l1.size();
         int size_2 = l2.size();
         if(size_1!=size_2){
-            return -(size_1-size_2);
+            return size_1-size_2;
         }else{
             int return_order = 0;
             boolean flag = true;
@@ -22,7 +22,7 @@ public class ListComparator implements Comparator<List<String>>, Serializable {
                     flag = true;
                 }else{
                     flag = false;
-                    return_order = -(Integer.parseInt(l1.get(i)) - Integer.parseInt(l2.get(i)));
+                    return_order = Integer.parseInt(l1.get(i)) - Integer.parseInt(l2.get(i));
                 }
                 i++;
             }
