@@ -75,6 +75,7 @@ public class TaskThree {
 //                .collect();
 
 
+
         JavaPairRDD<String, Integer> filteredList=
             finalItemSet
                 .filter(s->s._1.contains(";"))
@@ -90,16 +91,24 @@ public class TaskThree {
                             result.add(new Tuple2<>(tempItem, s._2));
                         }
                         else{
+                            String tp = "";
                             for(String i:item){
-
+                                if(tp.equals("")){
+                                    tp = i;
+                                }
+                                else {
+                                    tp = tp + ";" + i;
+                                }
+                                result.add(new Tuple2<>(tp, s._2));
                             }
                         }
                     }
                     return result.iterator();
                 });
 
+
         JavaPairRDD<String, Float> finalResult =
-            joinResult
+            filteredList
                 .mapToPair(s->{
                     String largeSet = s._2._1;
                     String[] temp = s._2._2.split("|");
