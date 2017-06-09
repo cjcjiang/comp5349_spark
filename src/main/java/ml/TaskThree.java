@@ -60,8 +60,8 @@ public class TaskThree {
                     List<Tuple2<String, Integer>> finalSubSetResult = new ArrayList<>();
                     String supp = s._1.toString();
                     CombinationGenerator g = new CombinationGenerator();
-                    List<Object> temp = Arrays.asList(s._2.split(";"));
-                    List<List<Object>> sub = g.getCombinations(temp,k);
+                    List<String> temp = Arrays.asList(s._2.split(";"));
+                    List<List<String>> sub = g.getCombinations(temp,k);
                     for(List list: sub){
                         finalSubSetResult.add(new Tuple2<>(list.toString()+"|"+supp, 1));
                     }
