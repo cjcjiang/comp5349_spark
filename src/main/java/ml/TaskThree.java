@@ -26,61 +26,63 @@ public class TaskThree {
         JavaSparkContext sc = new JavaSparkContext(conf);
         // get the results from task two
         JavaRDD<String> freqItemSet = sc.textFile(inputDataPath);
-        // format <itemSet, support>
+        // format <support, itemSet>
         JavaPairRDD<Integer, String> suppItemSet =
             freqItemSet
                 // first split the support number and the itemSet
                 .mapToPair(s->{
-                    String[] array = s.split("/t");
-                    int support = Integer.parseInt(array[0]);
+                    String[] array = s.split("\t");
+                    Integer support = Integer.parseInt(array[0]);
                     String itemSet = "";
                     for(int i=1;i< array.length;i++){
-                        itemSet = itemSet + "/t" + array[i];
+                        itemSet = itemSet + "\t" + array[i];
                     }
                     return new Tuple2<>(support, itemSet);
-                })
+                });
                 // split the itemSet
                 // this function returns the gene set which is of size 2 or larger
-                .flatMapToPair(s->{
-                    List<Tuple2<Integer, String>> size_filtered_geneSet = new ArrayList<>();
-                    String[] array = s._2.split("/t");
-                    for (String item:array){
-                        if (item.contains(";")){
-                            Tuple2<Integer, String> temp = new Tuple2<>(s._1, item);
-                            size_filtered_geneSet.add(temp);
-                        }
-                    }
-                return size_filtered_geneSet.iterator();
-                });
+//                .flatMapToPair(s->{
+//                    List<Tuple2<Integer, String>> size_filtered_geneSet = new ArrayList<>();
+//                    String[] array = s._2.split("/t");
+//                    for (String item:array){
+//                        String [] itemArray = item.split(";");
+//                        if (itemArray.length > 1) {
+//                            Tuple2<Integer, String> temp = new Tuple2<>(s._1, item);
+//                            size_filtered_geneSet.add(temp);
+//                        }
+//                    }
+//                return size_filtered_geneSet.iterator();
+//                });
 
-        // return format <{1,2}|150, 10>
-        JavaPairRDD<String, Integer> countItemSubSet =
+        // return format <{1,2}->{1}, 15>
+        JavaPairRDD<String, Integer> finalItemSet =
             suppItemSet
                 .flatMapToPair(s->{
                     List<Tuple2<String, Integer>> finalSubSetResult = new ArrayList<>();
-                    String supp = s._1.toString();
+                    Integer supp = s._1;
                     CombinationGenerator g = new CombinationGenerator();
-                    List<String> temp = Arrays.asList(s._2.split(";"));
-                    List<List<String>> sub = g.getCombinations(temp,k);
-                    for(List list: sub){
-                        finalSubSetResult.add(new Tuple2<>(list.toString()+"|"+supp, 1));
+                    String[] itemSet = s._2.split("\t");
+                    for(String item: itemSet) {
+                        if(item.split(";").length>1) {
+                            List<String> temp = Arrays.asList(s._2.split(";"));
+                            List<List<String>> sub = g.getCombinations(temp, k);
+                            for(List list: sub){
+                                finalSubSetResult.add(new Tuple2<>(temp.toString()+"->"+list.toString(), supp));
+                            }
+                        }
+                        else{
+                            finalSubSetResult.add(new Tuple2<>(item, supp));
+                        }
                     }
                     return finalSubSetResult.iterator();
-                })
-                .reduceByKey((s1,s2)->s1+s2);
+                });
 
-        System.out.println(countItemSubSet.top(10));
+        System.out.println(finalItemSet.top(10));
 
         // format <150, {1,2}|10>
-        JavaPairRDD<Integer, String> formattedResult =
-            countItemSubSet
-                .mapToPair(s->{
-                    String[] listAndSupp = s._1.split("|");
-                    String subSet = listAndSupp[0];
-                    Integer supp = Integer.parseInt(listAndSupp[1]);
-                    String subSupp = s._2.toString();
-                    return new Tuple2<>(supp,subSupp);
-                });
+        List<Tuple2<String, Integer>> formattedResult =
+            finalItemSet
+                .collect();
 
         // joinResult format: (150, Tuple2<{1,2,3},{1,2}|10>)
         JavaPairRDD<Integer, Tuple2<String,String>> joinResult = suppItemSet.join(formattedResult);
@@ -95,8 +97,10 @@ public class TaskThree {
                     int subSupp = Integer.parseInt(temp[1]);
                     int supp = s._1;
                     float confidence_value = (float)supp/subSupp;
-                    return new Tuple2<String, Float>(subSet+"/t"+largeSet+"-"+subSet, confidence_value);
-                });
+                    return new Tuple2<String, Float>(subSet+"/t"+largeSet+"-"+subSet, confidence_value).swap();
+                })
+                .sortByKey(false)
+                .mapToPair(s->s.swap());
 
         finalResult.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath);
 
