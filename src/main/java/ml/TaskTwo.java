@@ -33,9 +33,6 @@ public class TaskTwo {
         final String outputDataPath;
         Integer k_temp;
 
-        // TODO: user define max k size
-
-        // TODO: error handling here
         if(args.length==4){
             inputDataPath = args[0];
             outputDataPath = args[1];
@@ -107,9 +104,6 @@ public class TaskTwo {
             return temp;
         });
 
-        // Make the join happen in only one partition
-        cancer_patient_id.coalesce(1);
-        genes_strongly_expressed.coalesce(1);
         JavaPairRDD<String, Tuple2<String, Tuple2<String,Integer>>> cancer_patient_diseases_gene_value = cancer_patient_id.join(genes_strongly_expressed);
 
         // Prepare for the iteration
@@ -208,6 +202,21 @@ public class TaskTwo {
                 .cache();
 
         // Prepare for the iteration
+        // Make the single patient gene list only contains the useful gene
+        JavaRDD<List<String>> patient_divided_single_gene_list_int_pair_rdd = patient_divided_single_gene_list_rdd
+                .map(patient_divided_single_gene_list -> {
+                    List<String> new_patient_divided_single_gene_list = new ArrayList<>();
+                    List<String> bc_single_gene_in_gene_set_size_1_list_value = bc_single_gene_in_gene_set_size_1_list.value();
+                    for(String single_gene_checking : patient_divided_single_gene_list){
+                        if(bc_single_gene_in_gene_set_size_1_list_value.contains(single_gene_checking)){
+                            new_patient_divided_single_gene_list.add(single_gene_checking);
+                        }
+                    }
+                    return new_patient_divided_single_gene_list;
+                })
+                .cache();
+
+        // Prepare for the iteration
         // Have the initial gene set which only contains item set with size k=1
         JavaPairRDD<List<String>,Integer> gene_set = gene_set_size_1_pair_rdd
                 .mapToPair(tuple -> {
@@ -226,10 +235,11 @@ public class TaskTwo {
             System.out.println("Checking for candidate itemset with size: " + i);
             int k_last = i - 1;
 
-            JavaRDD<List<String>> gene_set_size_k_rdd;
+            JavaPairRDD<List<String>, Integer> gene_set_size_k_rdd;
 
             if(i==2){
-                gene_set_size_k_rdd = gene_set_size_2_rdd;
+                gene_set_size_k_rdd = gene_set_size_2_rdd
+                        .mapToPair(list -> new Tuple2<>(list, 1));
             }else{
                 JavaRDD<List<String>> gene_set_size_k_last_rdd = gene_set
                         .filter(tuple -> {
@@ -246,8 +256,8 @@ public class TaskTwo {
                 List<List<String>> gene_set_size_k_last_list = gene_set_size_k_last_rdd.collect();
                 Broadcast<List<List<String>>> bc_gene_set_size_k_last_list =sc.broadcast(gene_set_size_k_last_list);
                 gene_set_size_k_rdd = gene_set_size_k_last_rdd
-                        .flatMap(list -> {
-                            List<List<String>> part_gene_set_size_k_list = new ArrayList<>();
+                        .flatMapToPair(list -> {
+                            List<Tuple2<List<String>, Integer>> part_gene_set_size_k_list = new ArrayList<>();
                             List<List<String>> bc_gene_set_size_k_last_list_value = bc_gene_set_size_k_last_list.value();
                             int start_index = bc_gene_set_size_k_last_list_value.indexOf(list) + 1;
                             while(start_index<bc_gene_set_size_k_last_list_value.size()){
@@ -262,7 +272,7 @@ public class TaskTwo {
                                 }
                                 if(flag){
                                     gene_set_size_k_last.add(inner_gene_set_size_k_last.get(size_k_last-1));
-                                    part_gene_set_size_k_list.add(gene_set_size_k_last);
+                                    part_gene_set_size_k_list.add(new Tuple2<>(gene_set_size_k_last, 1));
                                 }
                                 start_index++;
                             }
@@ -270,14 +280,17 @@ public class TaskTwo {
                         });
             }
 
-            // Make the cartesian happen in one partition
-            patient_divided_single_gene_list_rdd.coalesce(1);
-            gene_set_size_k_rdd.coalesce(1);
-            JavaPairRDD<List<String>,Integer> gene_set_size_k = patient_divided_single_gene_list_rdd
-                    .cartesian(gene_set_size_k_rdd)
+            // Make this n partition
+            // For 5*10, small data size, about 45s
+            JavaRDD<List<String>> patient_divided_single_gene_list_int_pair_rdd_n_p = patient_divided_single_gene_list_int_pair_rdd.repartition(5);
+//            JavaRDD<List<String>> patient_divided_single_gene_list_int_pair_rdd_n_p = patient_divided_single_gene_list_int_pair_rdd.coalesce(1);
+            JavaPairRDD<List<String>, Integer> gene_set_size_k_rdd_n_p = gene_set_size_k_rdd.repartition(10);
+//            JavaPairRDD<List<String>, Integer> gene_set_size_k_rdd_n_p = gene_set_size_k_rdd.coalesce(1);
+            JavaPairRDD<List<String>,Integer> gene_set_size_k = patient_divided_single_gene_list_int_pair_rdd_n_p
+                    .cartesian(gene_set_size_k_rdd_n_p)
                     .filter(tuple -> {
                         List<String> patient_whole_gene_list = tuple._1;
-                        List<String> gene_set_size_k_list_in_car = tuple._2;
+                        List<String> gene_set_size_k_list_in_car = tuple._2._1;
                         if(patient_whole_gene_list.containsAll(gene_set_size_k_list_in_car)){
                             return true;
                         }else{
@@ -285,8 +298,7 @@ public class TaskTwo {
                         }
                     })
                     .mapToPair(tuple -> {
-                        List<String> gene_set_size_k_list_in_car = tuple._2;
-                        Tuple2<List<String>, Integer> temp = new Tuple2<>(gene_set_size_k_list_in_car, 1);
+                        Tuple2<List<String>, Integer> temp = tuple._2;
                         return temp;
                     })
                     .reduceByKey((n1,n2) -> n1+n2)
