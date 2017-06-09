@@ -22,7 +22,7 @@ public class CombinationGenerator implements Serializable {
 
         for(List<String> a : result){
             int a_size = a.size();
-            if(a_size>1&&a_size<k_max){
+            if(a_size>0&&a_size<k_max){
                 result_without_zero_one.add(a);
             }
         }

@@ -1,153 +1,137 @@
 package ml;
 
-
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.broadcast.Broadcast;
 import scala.Tuple2;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class TaskThree {
     public static void main(String[] args) {
-        Float confidence = 0.6f; // default value of confidence
-        String inputDataPath = args[0];
-        String outputDataPath = args[1];
+        // TODO: handle k and getcombination's k
+        final Float confidence_default = 0.6f;
+        final Float confidence_user;
+        final String inputDataPath = args[0];
+        final String outputDataPath = args[1];
         String valueOfK = args[2];
         final int k = Integer.parseInt(valueOfK);
-        // specify the confidence parameter
-        confidence = Float.parseFloat(args[2]);
+//        confidence_user = Float.parseFloat(args[2]);
         SparkConf conf = new SparkConf();
         // we can set lots of information here
-        conf.setAppName("Association Rule Generation");
+        conf.setAppName("LAB457-GP6-TaskThree-Association_Rule_Generation");
         JavaSparkContext sc = new JavaSparkContext(conf);
         // get the results from task two
         JavaRDD<String> freqItemSet = sc.textFile(inputDataPath);
         // format <support, itemSet>
-        JavaPairRDD<Integer, String> suppItemSet =
-            freqItemSet
-                // first split the support number and the itemSet
-                .mapToPair(s->{
+        JavaPairRDD<List<String>, Integer> suppItemSet = freqItemSet
+                        // first split the support number and the itemSet
+                .flatMapToPair(s->{
                     String[] array = s.split("\t");
                     Integer support = Integer.parseInt(array[0]);
-                    String itemSet = "";
-                    for(int i=1;i< array.length;i++){
-                        itemSet = itemSet + "\t" + array[i];
-                    }
-                    return new Tuple2<>(support, itemSet);
-                });
-                // split the itemSet
-                // this function returns the gene set which is of size 2 or larger
-//                .flatMapToPair(s->{
-//                    List<Tuple2<Integer, String>> size_filtered_geneSet = new ArrayList<>();
-//                    String[] array = s._2.split("/t");
-//                    for (String item:array){
-//                        String [] itemArray = item.split(";");
-//                        if (itemArray.length > 1) {
-//                            Tuple2<Integer, String> temp = new Tuple2<>(s._1, item);
-//                            size_filtered_geneSet.add(temp);
-//                        }
-//                    }
-//                return size_filtered_geneSet.iterator();
-//                });
-
-        // return format <item, support> eg. <45;12, 17>
-        JavaPairRDD<String, Integer> finalItemSet =
-            suppItemSet
-                .flatMapToPair(s->{
-                    List<Tuple2<String, Integer>> finalSubSetResult = new ArrayList<>();
-                    Integer supp = s._1;
-                    String[] itemSet = s._2.split("\t");
-                    for(String item: itemSet) {
-                                finalSubSetResult.add(new Tuple2<>(item, supp));
-                            }
-                    return finalSubSetResult.iterator();
-                }).cache();
-
-        System.out.println(finalItemSet.top(10));
-
-        // put the finalItemSet into a local List
-        List<Tuple2<String, Integer>> formattedResult =
-            finalItemSet
-                .collect();
-
-
-        // format <R \t S, support>
-        JavaPairRDD<String, Integer> filteredList=
-            finalItemSet
-                .filter(s->s._1.contains(";"))
-                .flatMapToPair(s->{
-                    List<Tuple2<String, Integer>> result = new ArrayList<>();
-                    List<List<String>> temp = new ArrayList<>();
-                    List<String> itemSet = Arrays.asList(s._1.split(";"));
-                    CombinationGenerator g = new CombinationGenerator();
-                    temp = g.getCombinations(itemSet,k);
-                    for(List<String> item: temp) {
-                        if (item.size() == 1) {
-                            String tempItem = item.get(0);
-                            result.add(new Tuple2<>(tempItem + "\t"+ s._1, s._2));
+                    List<Tuple2<List<String>, Integer>> return_list = new ArrayList<>();
+                    for(int i=1;i<array.length;i++){
+                        List<String> part_list_int = new ArrayList<>();
+                        String[] gene_set_array = array[i].split(";");
+                        for(String single_gene : gene_set_array){
+                            part_list_int.add(single_gene);
                         }
-                        else{
-                            String tp = "";
-                            for(String i:item){
-                                if(tp.equals("")){
-                                    tp = i;
-                                }
-                                else {
-                                    tp = tp + ";" + i;
-                                }
-                                result.add(new Tuple2<>(tp + "\t" + s._1, s._2));
-                            }
-                        }
+                        return_list.add(new Tuple2<>(part_list_int, support));
                     }
-                    return result.iterator();
-                });
-
-
-        JavaPairRDD<String, Float> finalResult =
-            filteredList
-                .mapToPair(s->{
-//                    String largeSet = s._2._1;
-//                    String[] temp = s._2._2.split("|");
-//                    String subSet = temp[0];
-//                    int subSupp = Integer.parseInt(temp[1]);
-//                    int supp = s._1;
-//                    float confidence_value = (float)supp/subSupp;
-//                    return new Tuple2<String, Float>(subSet+"/t"+largeSet+"-"+subSet, confidence_value).swap();
-
-                    String[] sets = s._1.split("/t");
-                    String largeSet = sets[1];
-                    String subSet = sets[0];
-                    Integer supp = s._2;
-                    Integer subSupp;
-                    Float confidence_value = 0f;
-                    String largeSetMinusSubSet = largeSet.replace(subSet, "");
-                    for(Tuple2<String, Integer> item: formattedResult){
-                        if(subSet.equals(item._1)){
-                            subSupp = item._2;
-                            confidence_value = (float)supp/subSupp;
-                        }
-                    }
-                    return new Tuple2<String, Float>(subSet+"\t"+largeSetMinusSubSet, confidence_value).swap();
+                    return return_list.iterator();
                 })
+                .cache();
+
+        List<Tuple2<Float, Tuple2<List<String>,List<String>>>> rule_result = new ArrayList<>();
+
+        // Use suppItemSet to have the size k
+        // Now, just let the user input this "k"
+        for(int i=2;i<=k;i++){
+            int k_this = i;
+            int k_last = i-1;
+            List<Tuple2<List<String>, Integer>> gene_set_size_k_last_support_pair_rdd = suppItemSet
+                    .filter(tuple -> {
+                        int list_size = tuple._1.size();
+                        if(list_size<=k_last){
+                            return true;
+                        }else{
+                            return false;
+                        }
+                    })
+                    .collect();
+            Broadcast<List<Tuple2<List<String>, Integer>>> bc_gene_set_size_k_last_support_pair_rdd = sc.broadcast(gene_set_size_k_last_support_pair_rdd);
+
+            List<Tuple2<Float, Tuple2<List<String>,List<String>>>> gene_set_size_k_support_list = suppItemSet
+                    .filter(tuple -> {
+                        int list_size = tuple._1.size();
+                        if(list_size==k_this){
+                            return true;
+                        }else{
+                            return false;
+                        }
+                    })
+                    .flatMapToPair(tuple ->{
+                        List<Tuple2<Float, Tuple2<List<String>,List<String>>>> return_list = new ArrayList<>();
+                        Integer s_support = tuple._2;
+                        List<String> gene_set = tuple._1;
+                        List<Tuple2<List<String>, Integer>> bc_gene_set_size_k_last_support_pair_rdd_value = bc_gene_set_size_k_last_support_pair_rdd.value();
+                        List<List<String>> checking_gene_set_list = CombinationGenerator.getCombinations(gene_set, k_this);
+                        for(List<String> checking_gene_set : checking_gene_set_list){
+                            for(Tuple2<List<String>, Integer> tuple_gene_set_size_k_last_support : bc_gene_set_size_k_last_support_pair_rdd_value){
+                                Set<String> tuple_gene_set_size_k_last_support_set = new HashSet<>(tuple_gene_set_size_k_last_support._1);
+                                Set<String> checking_gene_set_set = new HashSet<>(checking_gene_set);
+                                boolean flag = tuple_gene_set_size_k_last_support_set.equals(checking_gene_set_set);
+                                if(flag){
+                                    Integer r_support = tuple_gene_set_size_k_last_support._2;
+                                    Float conf_result = s_support.floatValue()/r_support.floatValue();
+                                    List<String> s_minus_r_list = new ArrayList<>();
+                                    s_minus_r_list.addAll(gene_set);
+                                    s_minus_r_list.removeAll(checking_gene_set);
+                                    Tuple2<List<String>,List<String>> inner_temp = new Tuple2<>(checking_gene_set, s_minus_r_list);
+                                    Tuple2<Float, Tuple2<List<String>,List<String>>> temp = new Tuple2<>(conf_result, inner_temp);
+                                    return_list.add(temp);
+                                }
+                            }
+                        }
+                        return return_list.iterator();
+                    })
+                    .collect();
+
+            rule_result.addAll(gene_set_size_k_support_list);
+        }
+
+        // TODO: add filter here
+        JavaRDD<String> output = sc
+                .parallelize(rule_result)
+                .mapToPair(tuple->tuple)
                 .sortByKey(false)
-                .mapToPair(s->s.swap());
-
-        finalResult.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath);
-
-
-
-
-
-
-
-
-
-
-
-
+                .map(tuple -> {
+                    Float confidence_result = tuple._1;
+                    Tuple2<List<String>,List<String>> temp = tuple._2;
+                    List<String> r_list = temp._1;
+                    List<String> s_minus_r_list = temp._2;
+                    String r_merge = "";
+                    for(String s : r_list){
+                        if(r_merge.equals("")){
+                            r_merge = s;
+                        }else{
+                            r_merge = r_merge + " " + s;
+                        }
+                    }
+                    String s_minus_r_merge = "";
+                    for(String s : s_minus_r_list){
+                        if(s_minus_r_merge.equals("")){
+                            s_minus_r_merge = s;
+                        }else{
+                            s_minus_r_merge = s_minus_r_merge + " " + s;
+                        }
+                    }
+                    String out_string = r_merge + "\t" + s_minus_r_merge + "\t" + confidence_result;
+                    return out_string;
+                });
+        output.coalesce(1).saveAsTextFile(outputDataPath);
+        sc.close();
     }
 }
