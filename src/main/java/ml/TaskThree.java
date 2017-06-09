@@ -11,21 +11,31 @@ import java.util.*;
 
 public class TaskThree {
     public static void main(String[] args) {
-        // TODO: handle k and getcombination's k
         final Float confidence_default = 0.6f;
         final Float confidence_user;
-        final String inputDataPath = args[0];
-        final String outputDataPath = args[1];
-        String valueOfK = args[2];
-        final int k = Integer.parseInt(valueOfK);
-//        confidence_user = Float.parseFloat(args[2]);
+        final String inputDataPath;
+        final String outputDataPath;
+        final String inputDataPath_default = "hdfs://soit-hdp-pro-1.ucc.usyd.edu.au:8020/user/yjia4072/spark_test/";
+        final String outputDataPath_default = "hdfs://soit-hdp-pro-1.ucc.usyd.edu.au:8020/user/yjia4072/spark_test/";
+
+        if(args.length==3){
+            inputDataPath = args[0];
+            outputDataPath = args[1];
+            confidence_user = Float.parseFloat(args[2]);
+            System.out.println("The confidence threshold is set to: " + confidence_user);
+        }else{
+            inputDataPath = inputDataPath_default;
+            outputDataPath = outputDataPath_default;
+            confidence_user = confidence_default;
+            System.out.println("Wrong command, all things are set to default.");
+            System.out.println("The confidence threshold is set to: " + confidence_user);
+        }
+
         SparkConf conf = new SparkConf();
-        // we can set lots of information here
-        conf.setAppName("LAB457-GP6-TaskThree-Association_Rule_Generation");
+        conf.setAppName("LAB457_GP6_AS3_TaskThree_Association_Rule_Generation");
         JavaSparkContext sc = new JavaSparkContext(conf);
         // get the results from task two
-        JavaRDD<String> freqItemSet = sc.textFile(inputDataPath);
-        // format <support, itemSet>
+        JavaRDD<String> freqItemSet = sc.textFile(inputDataPath + "task_two_result/part-00000");
         JavaPairRDD<List<String>, Integer> suppItemSet = freqItemSet
                         // first split the support number and the itemSet
                 .flatMapToPair(s->{
@@ -43,6 +53,13 @@ public class TaskThree {
                     return return_list.iterator();
                 })
                 .cache();
+
+        final Integer k = suppItemSet
+                .map(tuple -> {
+                    Integer list_size = tuple._1.size();
+                    return list_size;
+                })
+                .max(new KMaxComparator());
 
         List<Tuple2<Float, Tuple2<List<String>,List<String>>>> rule_result = new ArrayList<>();
 
@@ -102,9 +119,16 @@ public class TaskThree {
             rule_result.addAll(gene_set_size_k_support_list);
         }
 
-        // TODO: add filter here
         JavaRDD<String> output = sc
                 .parallelize(rule_result)
+                .filter(tuple -> {
+                    Float confidence_result = tuple._1;
+                    if(confidence_result>=confidence_user){
+                        return true;
+                    }else{
+                        return false;
+                    }
+                })
                 .mapToPair(tuple->tuple)
                 .sortByKey(false)
                 .map(tuple -> {
@@ -131,7 +155,7 @@ public class TaskThree {
                     String out_string = r_merge + "\t" + s_minus_r_merge + "\t" + confidence_result;
                     return out_string;
                 });
-        output.coalesce(1).saveAsTextFile(outputDataPath);
+        output.coalesce(1).saveAsTextFile(outputDataPath + "task_three_result");
         sc.close();
     }
 }

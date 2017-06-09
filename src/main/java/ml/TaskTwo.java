@@ -31,6 +31,8 @@ public class TaskTwo {
         final Integer k_user;
         final String inputDataPath;
         final String outputDataPath;
+        final String inputDataPath_default = "hdfs://soit-hdp-pro-1.ucc.usyd.edu.au:8020/share/genedata/test/";
+        final String outputDataPath_default = "hdfs://soit-hdp-pro-1.ucc.usyd.edu.au:8020/user/yjia4072/spark_test/";
         Integer k_temp;
 
         if(args.length==4){
@@ -40,8 +42,8 @@ public class TaskTwo {
             k_temp = Integer.parseInt(args[3]);
             System.out.println("The minimum support is set to: " + support_value + "; the maximum itemset size is set to: " + k_temp);
         }else{
-            inputDataPath = args[0];
-            outputDataPath = args[1];
+            inputDataPath = inputDataPath_default;
+            outputDataPath = outputDataPath_default;
             support_value = support_value_default;
             k_temp = k_default;
             System.out.println("Wrong command, all things are set to default.");
