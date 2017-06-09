@@ -229,8 +229,7 @@ public class TaskTwo {
                     List<String> gene_set_size_1_list = new ArrayList<>();
                     gene_set_size_1_list.add(single_gene);
                     return new Tuple2<>(gene_set_size_1_list, support);
-                })
-                .cache();
+                });
 
         // Broadcast patient_divided_single_gene_list_rdd
 //        List<List<String>> patient_divided_single_gene_list = patient_divided_single_gene_list_rdd.collect();
@@ -285,8 +284,8 @@ public class TaskTwo {
                                 start_index++;
                             }
                             return part_gene_set_size_k_list.iterator();
-                        })
-                .cache();
+                        });
+//                .cache();
             }
 
             // Car try
@@ -387,8 +386,8 @@ public class TaskTwo {
             // Convert gene_set_full_list to JavaPairRDD and cache this in memory
             gene_set = sc
                     .parallelize(loop_final_list)
-                    .mapToPair(tuple -> tuple)
-                    .cache();
+                    .mapToPair(tuple -> tuple);
+//                    .cache();
             i++;
         }
 
@@ -408,9 +407,16 @@ public class TaskTwo {
                             List<String> temp = in_value;
                             String this_merge = "";
                             for(String s : temp){
-                                this_merge = s + ";" + this_merge;
+                                if(this_merge.equals("")){
+                                    this_merge = s;
+                                }else{
+                                    this_merge = s + ";" + this_merge;
+                                }
                             }
-                            this_merge = this_merge + "\t" + last_merge_value;
+                            if(last_merge_value.equals("")){
+                            }else{
+                                this_merge = this_merge + "\t" + last_merge_value;
+                            }
                             return this_merge;
                         },
                         (merge_value_1, merge_value_2) -> {
@@ -437,7 +443,6 @@ public class TaskTwo {
 
         output.saveAsTextFile(outputDataPath + "task_two_result");
         sc.close();
-
     }
 }
 
