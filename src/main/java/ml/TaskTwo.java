@@ -176,6 +176,7 @@ public class TaskTwo {
                         return true;
                     }
                 })
+                .sortByKey()
                 .cache();
 
         List<String> single_gene_in_gene_set_size_1_list = gene_set_size_1_pair_rdd.keys().collect();
@@ -335,13 +336,14 @@ public class TaskTwo {
             gene_set = sc
                     .parallelize(loop_final_list)
                     .mapToPair(tuple -> tuple);
-//                    .cache();
             i++;
         }
 
         // Change gene_set to the output format
         // Input List<String> Integer
         JavaRDD<String> output = gene_set
+                .coalesce(1)
+                .sortByKey(new ListComparator())
                 .mapToPair(tuple -> {
                     List<String> gene_set_list = tuple._1;
                     Integer gene_set_num = tuple._2;
@@ -358,7 +360,7 @@ public class TaskTwo {
                                 if(this_merge.equals("")){
                                     this_merge = s;
                                 }else{
-                                    this_merge = s + ";" + this_merge;
+                                    this_merge = this_merge + ";" + s;
                                 }
                             }
                             if(last_merge_value.equals("")){
@@ -374,7 +376,7 @@ public class TaskTwo {
                             return r_s;
                         }
                 )
-                .sortByKey()
+                .sortByKey(false)
                 .map(tuple->{
                     Integer supp = tuple._1;
                     String gene_set_list = tuple._2;
