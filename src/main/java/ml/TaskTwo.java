@@ -378,14 +378,7 @@ public class TaskTwo {
                 .map(tuple->{
                     Integer supp = tuple._1;
                     String gene_set_list = tuple._2;
-                    String[] gene_set_list_array = gene_set_list.split("\t");
-                    String out_string = "";
-                    for(String s : gene_set_list_array){
-                        if(!s.equals("")){
-                            out_string = s + "\t" + out_string;
-                        }
-                    }
-                    String outer_string_temp = supp + "\t" + out_string;
+                    String outer_string_temp = supp + "\t" + gene_set_list;
                     return outer_string_temp;
                 });
 
