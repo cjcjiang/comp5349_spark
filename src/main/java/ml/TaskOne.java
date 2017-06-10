@@ -11,7 +11,7 @@ public class TaskOne {
         String outputDataPath = args[1];
         SparkConf conf = new SparkConf();
         // we can set lots of information here
-        conf.setAppName("Cancer Gene Analysis");
+        conf.setAppName("LAB457_GP6_AS3_TaskOne_Cancer_Gene_Analysis");
         JavaSparkContext sc = new JavaSparkContext(conf);
         // create some RDDs
         JavaRDD<String> geoData = sc.textFile(inputDataPath + "GEO.txt"),
@@ -71,7 +71,7 @@ public class TaskOne {
                 .sortByKey(false)
                 .mapToPair(s-> new Tuple2<String, Integer>(s._2, s._1)); // swap back the key-value pairs
 
-        finalResult.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath);
+        finalResult.map(s->s.productIterator().toSeq().mkString("\t")).saveAsTextFile(outputDataPath + "task_one_result");
         sc.close();
     }
 }
