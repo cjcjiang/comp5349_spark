@@ -294,6 +294,7 @@ public class TaskTwo {
         // Change gene_set to the output format
         // Input List<String> Integer
         JavaRDD<String> output = gene_set_pid_occ
+                .coalesce(1, true)
                 .sortByKey(new ListComparator())
                 .mapToPair(tuple -> {
                     List<String> gene_set_list = tuple._1;
