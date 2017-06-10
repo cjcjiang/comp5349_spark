@@ -119,14 +119,12 @@ public class TaskTwoRE {
                             return temp;
                         }
                 );
-
         // Count all the cancer patients in geo.txt
         Long checking_cancer_patient_num = counting_purpose
                 .keys()
                 .count();
         final Long support_num = new Double(checking_cancer_patient_num * support_value).longValue();
         System.out.println("The support_num is: " + support_num);
-
         // Get the largest number for item set size k
         final Integer k_max = counting_purpose
                 .values()
@@ -169,7 +167,6 @@ public class TaskTwoRE {
                             return temp;
                         }
                 );
-
         JavaPairRDD<List<String>, List<String>> gene_set_size_one_pid = gene_set_size_one_pid_temp
                 .filter(tuple -> {
                     Integer gene_set_support_num = tuple._2.size();
@@ -179,13 +176,162 @@ public class TaskTwoRE {
                         return true;
                     }
                 })
-                .sortByKey(new ListComparator());
+                .sortByKey(new ListComparator())
+                .cache();
 
         // Start the iteration
+        JavaPairRDD<List<String>, List<String>> gene_set_pid_occ = gene_set_size_one_pid;
         boolean loop_continue_flag = true;
-        int i =2;
-//        while((i<=k_user)&&loop_continue_flag){}
+        int i = 2;
+        while((i<=k_user)&&loop_continue_flag){
+            System.out.println("Checking for candidate itemset with size: " + i);
+            int k_last = i - 1;
+            JavaPairRDD<List<String>, List<String>> gene_set_size_k_pid;
+            if(i==2){
+                List<Tuple2<List<String>, List<String>>> gene_set_size_one_pid_collect_list = gene_set_size_one_pid.collect();
+                Broadcast<List<Tuple2<List<String>, List<String>>>> bc_gene_set_size_one_pid_collect_list = sc.broadcast(gene_set_size_one_pid_collect_list);
+                gene_set_size_k_pid = gene_set_size_one_pid
+                        .flatMapToPair(tuple -> {
+                            // Handle pointer error
+                            Tuple2<List<String>, List<String>> single_gid_pid_tuple = tuple;
+                            List<Tuple2<List<String>, List<String>>> part_gene_set_size_2_list = new ArrayList<>();
+                            List<Tuple2<List<String>, List<String>>> bc_gene_set_size_one_pid_collect_list_value = bc_gene_set_size_one_pid_collect_list.value();
+                            int ite_start_index = bc_gene_set_size_one_pid_collect_list_value.indexOf(single_gid_pid_tuple) + 1;
+                            while(ite_start_index<bc_gene_set_size_one_pid_collect_list_value.size()){
+                                List<String> inner_part_gene_set_size_2_list = new ArrayList<>();
+                                Tuple2<List<String>, List<String>> inner_single_gene = bc_gene_set_size_one_pid_collect_list_value.get(ite_start_index);
+//                                List<String> outer_pid = single_gid_pid_tuple._2;
+//                                List<String> inner_pid = inner_single_gene._2;
+                                List<String> outer_pid = new ArrayList<>();
+                                List<String> inner_pid = inner_single_gene._2;
+                                outer_pid.addAll(single_gid_pid_tuple._2);
+                                outer_pid.retainAll(inner_pid);
+                                if(outer_pid.size()!=0){
+                                    inner_part_gene_set_size_2_list.add(single_gid_pid_tuple._1.get(0));
+                                    inner_part_gene_set_size_2_list.add(inner_single_gene._1.get(0));
+                                    part_gene_set_size_2_list.add(new Tuple2<>(inner_part_gene_set_size_2_list, outer_pid));
+                                }
+                                ite_start_index++;
+                            }
+                            return part_gene_set_size_2_list.iterator();
+                        })
+                        .filter(tuple -> {
+                            Integer gene_set_support_num = tuple._2.size();
+                            if(gene_set_support_num<support_num){
+                                return false;
+                            }else{
+                                return true;
+                            }
+                        })
+                        .sortByKey(new ListComparator());
+            }else{
+                JavaPairRDD<List<String>, List<String>> gene_set_size_k_last_pid = gene_set_pid_occ
+                        .filter(tuple -> {
+                            List<String> gene_set_list = tuple._1;
+                            int gene_set_size = gene_set_list.size();
+                            if(gene_set_size==k_last){
+                                return true;
+                            }else{
+                                return false;
+                            }
+                        });
+                List<Tuple2<List<String>, List<String>>> gene_set_size_k_last_collect_list = gene_set_size_k_last_pid.collect();
+                Broadcast<List<Tuple2<List<String>, List<String>>>> bc_gene_set_size_k_last_collect_list =sc.broadcast(gene_set_size_k_last_collect_list);
+                gene_set_size_k_pid = gene_set_size_k_last_pid
+                        .flatMapToPair(tuple -> {
+                            List<Tuple2<List<String>, List<String>>> part_gene_set_size_k_list = new ArrayList<>();
+                            List<Tuple2<List<String>, List<String>>> bc_gene_set_size_k_last_collect_list_value = bc_gene_set_size_k_last_collect_list.value();
+                            int start_index = bc_gene_set_size_k_last_collect_list_value.indexOf(tuple) + 1;
+                            while(start_index<bc_gene_set_size_k_last_collect_list_value.size()){
+                                Tuple2<List<String>, List<String>> gene_set_size_k_last_pid_tuple = tuple;
+                                Tuple2<List<String>, List<String>> inner_gene_set_size_k_last = bc_gene_set_size_k_last_collect_list_value.get(start_index);
+                                boolean flag = true;
+                                int size_k_last = inner_gene_set_size_k_last._1.size();
+                                for(int p =0;p<size_k_last-1;p++){
+                                    String out = gene_set_size_k_last_pid_tuple._1.get(p);
+                                    String inner = inner_gene_set_size_k_last._1.get(p);
+                                    if(!out.equals(inner)){flag = false;}
+                                }
+                                if(flag){
+                                    List<String> outer_gene_set = new ArrayList<>();
+                                    List<String> outer_pid = new ArrayList<>();
+                                    outer_gene_set.addAll(gene_set_size_k_last_pid_tuple._1);
+                                    outer_pid.addAll(gene_set_size_k_last_pid_tuple._2);
+                                    outer_gene_set.add(inner_gene_set_size_k_last._1.get(size_k_last-1));
+                                    outer_pid.retainAll(inner_gene_set_size_k_last._2);
+                                    if(outer_pid.size()!=0){
+                                        part_gene_set_size_k_list.add(new Tuple2<>(outer_gene_set, outer_pid));
+                                    }
+                                }
+                                start_index++;
+                            }
+                            return part_gene_set_size_k_list.iterator();
+                        })
+                        .filter(tuple -> {
+                            Integer gene_set_support_num = tuple._2.size();
+                            if(gene_set_support_num<support_num){
+                                return false;
+                            }else{
+                                return true;
+                            }
+                        })
+                        .sortByKey(new ListComparator());
+            }
 
-        gene_set_size_one_pid.saveAsTextFile(outputDataPath + "task_two_RE_result");
+            // If all the size k gene set is filtered, stop the loop
+            long gene_set_size_k_size = gene_set_size_k_pid.count();
+            if(gene_set_size_k_size==0){
+                loop_continue_flag = false;
+                System.out.println("For itemset size " + i + ", none of the candidate has passed the support check, the loop will stop.");
+            }
+            gene_set_pid_occ = gene_set_pid_occ.union(gene_set_size_k_pid);
+            i++;
+        }
+
+        // Change gene_set to the output format
+        // Input List<String> Integer
+        JavaRDD<String> output = gene_set_pid_occ
+                .sortByKey(new ListComparator())
+                .mapToPair(tuple -> {
+                    List<String> gene_set_list = tuple._1;
+                    Integer gene_set_num = tuple._2.size();
+                    Tuple2<Integer, List<String>> temp = new Tuple2<>(gene_set_num, gene_set_list);
+                    return temp;
+                })
+                .aggregateByKey(
+                        "",
+                        1,
+                        (last_merge_value, in_value) -> {
+                            List<String> temp = in_value;
+                            String this_merge = "";
+                            for(String s : temp){
+                                if(this_merge.equals("")){
+                                    this_merge = s;
+                                }else{
+                                    this_merge = this_merge + ";" + s;
+                                }
+                            }
+                            if(last_merge_value.equals("")){
+                            }else{
+                                this_merge = last_merge_value + "\t" + this_merge;
+                            }
+                            return this_merge;
+                        },
+                        (merge_value_1, merge_value_2) -> {
+                            String m1 = merge_value_1;
+                            String m2 = merge_value_2;
+                            String r_s = m1 + "\t" + m2;
+                            return r_s;
+                        }
+                )
+                .sortByKey(false)
+                .map(tuple->{
+                    Integer supp = tuple._1;
+                    String gene_set_list = tuple._2;
+                    String outer_string_temp = supp + "\t" + gene_set_list;
+                    return outer_string_temp;
+                });
+
+        output.saveAsTextFile(outputDataPath + "task_two_RE_result");
     }
 }
