@@ -317,25 +317,7 @@ public class TaskTwo {
                 loop_continue_flag = false;
                 System.out.println("For itemset size " + i + ", none of the candidate has passed the support check, the loop will stop.");
             }
-
-            // Have a list to store gene set size k
-            List<Tuple2<List<String>,Integer>> gene_set_this_loop_list = gene_set_size_k.collect();
-//            System.out.println("The size of gene_set_this_loop_list is: " + gene_set_this_loop_list.size());
-
-            // Have the list of gene_set without gene set size k
-            List<Tuple2<List<String>,Integer>> gene_set_previous_loop_list = gene_set.collect();
-//            System.out.println("The size of gene_set_previous_loop_list is: " + gene_set_previous_loop_list.size());
-
-            // Merge gene_set_full_list and gene_set_size_k_string_int_tuple_list
-            List<Tuple2<List<String>, Integer>> loop_final_list = new ArrayList<>();
-            loop_final_list.addAll(gene_set_this_loop_list);
-            loop_final_list.addAll(gene_set_previous_loop_list);
-//            System.out.println("The size of loop_final_list is: " + loop_final_list.size());
-
-            // Convert gene_set_full_list to JavaPairRDD and cache this in memory
-            gene_set = sc
-                    .parallelize(loop_final_list)
-                    .mapToPair(tuple -> tuple);
+            gene_set = gene_set.union(gene_set_size_k);
             i++;
         }
 

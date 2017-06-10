@@ -102,27 +102,10 @@ public class TaskTwoRE {
                 })
                 .cache();
 
-        // Count all the cancer patients in geo.txt
-        Long checking_cancer_patient_num = pid_gid
-                .reduceByKey((s1, s2) -> s1)
-                .keys()
-                .count();
-        final Long support_num = new Double(checking_cancer_patient_num * support_value).longValue();
-        System.out.println("The support_num is: " + support_num);
-
-        // Get k=1 filtered item-set
-        // Key: gene set, at this time, the list only contains one gene
-        // Value: pid list, the list contains all the patients who have this gene set
-        JavaPairRDD<List<String>, ArrayList<String>> gene_set_size_one_pid = pid_gid
-                .mapToPair(tuple -> {
-                    String pid = tuple._1;
-                    String gid = tuple._2;
-                    List<String> gid_list = new ArrayList<>();
-                    gid_list.add(gid);
-                    return new Tuple2<>(gid_list,pid);
-                })
+        // Aggregating for counting the support num and k_max
+        JavaPairRDD<String, List<String>> counting_purpose = pid_gid
                 .aggregateByKey(
-                        new ArrayList<String>(),
+                        new ArrayList<>(),
                         (last_merge_value, in_value) -> {
                             ArrayList<String> temp = new ArrayList<>();
                             temp.addAll(last_merge_value);
@@ -135,7 +118,59 @@ public class TaskTwoRE {
                             temp.addAll(merge_value_2);
                             return temp;
                         }
-                )
+                );
+
+        // Count all the cancer patients in geo.txt
+        Long checking_cancer_patient_num = counting_purpose
+                .keys()
+                .count();
+        final Long support_num = new Double(checking_cancer_patient_num * support_value).longValue();
+        System.out.println("The support_num is: " + support_num);
+
+        // Get the largest number for item set size k
+        final Integer k_max = counting_purpose
+                .values()
+                .map(list -> {
+                    Integer list_size = list.size();
+                    return list_size;
+                })
+                .max(new KMaxComparator());
+        if(k_temp>k_max){
+            k_user = k_max;
+            System.out.println("The max k should be: " + k_max);
+            System.out.println("The max k is changed to: " + k_user);
+        }else{
+            k_user = k_temp;
+        }
+
+        // Get k=1 filtered item-set
+        // Key: gene set, at this time, the list only contains one gene
+        // Value: pid list, the list contains all the patients who have this gene set
+        JavaPairRDD<List<String>, List<String>> gene_set_size_one_pid_temp = pid_gid
+                .mapToPair(tuple -> {
+                    String pid = tuple._1;
+                    String gid = tuple._2;
+                    List<String> gid_list = new ArrayList<>();
+                    gid_list.add(gid);
+                    return new Tuple2<>(gid_list,pid);
+                })
+                .aggregateByKey(
+                        new ArrayList<String>(),
+                        (last_merge_value, in_value) -> {
+                            List<String> temp = new ArrayList<>();
+                            temp.addAll(last_merge_value);
+                            temp.add(in_value);
+                            return temp;
+                        },
+                        (merge_value_1, merge_value_2) ->{
+                            List<String> temp = new ArrayList<>();
+                            temp.addAll(merge_value_1);
+                            temp.addAll(merge_value_2);
+                            return temp;
+                        }
+                );
+
+        JavaPairRDD<List<String>, List<String>> gene_set_size_one_pid = gene_set_size_one_pid_temp
                 .filter(tuple -> {
                     Integer gene_set_support_num = tuple._2.size();
                     if(gene_set_support_num<support_num){
@@ -146,5 +181,11 @@ public class TaskTwoRE {
                 })
                 .sortByKey(new ListComparator());
 
+        // Start the iteration
+        boolean loop_continue_flag = true;
+        int i =2;
+//        while((i<=k_user)&&loop_continue_flag){}
+
+        gene_set_size_one_pid.saveAsTextFile(outputDataPath + "task_two_RE_result");
     }
 }
