@@ -177,9 +177,6 @@ public class TaskTwo {
                     }
                 })
                 .sortByKey(new ListComparator())
-                // Change the repartition number based on the number of executors
-                // The number of executors used should be based on the size of the data
-                .repartition(10)
                 .cache();
 
         // Start the iteration
@@ -194,6 +191,9 @@ public class TaskTwo {
                 List<Tuple2<List<String>, List<String>>> gene_set_size_one_pid_collect_list = gene_set_size_one_pid.collect();
                 Broadcast<List<Tuple2<List<String>, List<String>>>> bc_gene_set_size_one_pid_collect_list = sc.broadcast(gene_set_size_one_pid_collect_list);
                 gene_set_size_k_pid = gene_set_size_one_pid
+                        // Change the repartition number based on the number of executors
+                        // The number of executors used should be based on the size of the data
+                        .repartition(10)
                         .flatMapToPair(tuple -> {
                             Tuple2<List<String>, List<String>> single_gid_pid_tuple = tuple;
                             List<Tuple2<List<String>, List<String>>> part_gene_set_size_2_list = new ArrayList<>();
@@ -238,6 +238,9 @@ public class TaskTwo {
                 List<Tuple2<List<String>, List<String>>> gene_set_size_k_last_collect_list = gene_set_size_k_last_pid.collect();
                 Broadcast<List<Tuple2<List<String>, List<String>>>> bc_gene_set_size_k_last_collect_list =sc.broadcast(gene_set_size_k_last_collect_list);
                 gene_set_size_k_pid = gene_set_size_k_last_pid
+                        // Change the repartition number based on the number of executors
+                        // The number of executors used should be based on the size of the data
+                        .repartition(10)
                         .flatMapToPair(tuple -> {
                             List<Tuple2<List<String>, List<String>>> part_gene_set_size_k_list = new ArrayList<>();
                             List<Tuple2<List<String>, List<String>>> bc_gene_set_size_k_last_collect_list_value = bc_gene_set_size_k_last_collect_list.value();
