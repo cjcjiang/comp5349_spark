@@ -177,6 +177,9 @@ public class TaskTwoRE {
                     }
                 })
                 .sortByKey(new ListComparator())
+                // Change the repartition number based on the number of executors
+                // The number of executors used should be based on the size of the data
+                .repartition(20)
                 .cache();
 
         // Start the iteration
@@ -184,15 +187,15 @@ public class TaskTwoRE {
         boolean loop_continue_flag = true;
         int i = 2;
         while((i<=k_user)&&loop_continue_flag){
-            System.out.println("Checking for candidate itemset with size: " + i);
+            System.out.println("Checking for candidate item-set with size: " + i);
             int k_last = i - 1;
             JavaPairRDD<List<String>, List<String>> gene_set_size_k_pid;
             if(i==2){
                 List<Tuple2<List<String>, List<String>>> gene_set_size_one_pid_collect_list = gene_set_size_one_pid.collect();
                 Broadcast<List<Tuple2<List<String>, List<String>>>> bc_gene_set_size_one_pid_collect_list = sc.broadcast(gene_set_size_one_pid_collect_list);
                 gene_set_size_k_pid = gene_set_size_one_pid
+//                        .repartition(10)
                         .flatMapToPair(tuple -> {
-                            // Handle pointer error
                             Tuple2<List<String>, List<String>> single_gid_pid_tuple = tuple;
                             List<Tuple2<List<String>, List<String>>> part_gene_set_size_2_list = new ArrayList<>();
                             List<Tuple2<List<String>, List<String>>> bc_gene_set_size_one_pid_collect_list_value = bc_gene_set_size_one_pid_collect_list.value();
@@ -200,8 +203,6 @@ public class TaskTwoRE {
                             while(ite_start_index<bc_gene_set_size_one_pid_collect_list_value.size()){
                                 List<String> inner_part_gene_set_size_2_list = new ArrayList<>();
                                 Tuple2<List<String>, List<String>> inner_single_gene = bc_gene_set_size_one_pid_collect_list_value.get(ite_start_index);
-//                                List<String> outer_pid = single_gid_pid_tuple._2;
-//                                List<String> inner_pid = inner_single_gene._2;
                                 List<String> outer_pid = new ArrayList<>();
                                 List<String> inner_pid = inner_single_gene._2;
                                 outer_pid.addAll(single_gid_pid_tuple._2);
