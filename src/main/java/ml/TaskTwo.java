@@ -194,7 +194,6 @@ public class TaskTwo {
                 List<Tuple2<List<String>, List<String>>> gene_set_size_one_pid_collect_list = gene_set_size_one_pid.collect();
                 Broadcast<List<Tuple2<List<String>, List<String>>>> bc_gene_set_size_one_pid_collect_list = sc.broadcast(gene_set_size_one_pid_collect_list);
                 gene_set_size_k_pid = gene_set_size_one_pid
-//                        .repartition(10)
                         .flatMapToPair(tuple -> {
                             Tuple2<List<String>, List<String>> single_gid_pid_tuple = tuple;
                             List<Tuple2<List<String>, List<String>>> part_gene_set_size_2_list = new ArrayList<>();
@@ -283,7 +282,7 @@ public class TaskTwo {
             long gene_set_size_k_size = gene_set_size_k_pid.count();
             if(gene_set_size_k_size==0){
                 loop_continue_flag = false;
-                System.out.println("For itemset size " + i + ", none of the candidate has passed the support check, the loop will stop.");
+                System.out.println("For item-set size " + i + ", none of the candidate has passed the support check, the loop will stop.");
             }
             gene_set_pid_occ = gene_set_pid_occ.union(gene_set_size_k_pid);
             i++;
@@ -333,6 +332,6 @@ public class TaskTwo {
                     return outer_string_temp;
                 });
 
-        output.saveAsTextFile(outputDataPath + "task_two_RE_result");
+        output.saveAsTextFile(outputDataPath + "task_two_result");
     }
 }
